@@ -17,7 +17,7 @@ from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.openapi.utils import get_openapi
 
-from app.api import audit, bishop, bulk, cashflow, custody, dag, expiration, ghost, inventory, memory, menucost, mocks, pricewatch, rebalance, receiving, scananomaly, stockout, vendors, vision, whatif
+from app.api import audit, auditready, bishop, bulk, cashflow, custody, dag, expiration, ghost, inventory, memory, menucost, mocks, pricewatch, rebalance, receiving, scananomaly, stockout, vendors, vision, whatif
 from app.core.config import get_settings
 
 settings = get_settings()
@@ -66,6 +66,10 @@ OPENAPI_TAGS = [
     {
         "name": "Chain of Custody",
         "description": "Track high-risk item movement. Traceability, not surveillance.",
+    },
+    {
+        "name": "Audit Readiness",
+        "description": "Detect compliance gaps before audits. Evidence tracking and remediation.",
     },
     {
         "name": "Audit Trail",
@@ -263,6 +267,7 @@ app.include_router(vision.router, prefix="/api/v1")
 app.include_router(whatif.router, prefix="/api/v1")
 app.include_router(memory.router, prefix="/api/v1")
 app.include_router(custody.router, prefix="/api/v1")
+app.include_router(auditready.router, prefix="/api/v1")
 app.include_router(mocks.router, prefix="/api/v1")
 
 
