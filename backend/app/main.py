@@ -17,7 +17,7 @@ from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.openapi.utils import get_openapi
 
-from app.api import audit, bishop, bulk, cashflow, dag, expiration, ghost, inventory, menucost, mocks, pricewatch, rebalance, receiving, scananomaly, stockout, vendors, vision
+from app.api import audit, bishop, bulk, cashflow, dag, expiration, ghost, inventory, menucost, mocks, pricewatch, rebalance, receiving, scananomaly, stockout, vendors, vision, whatif
 from app.core.config import get_settings
 
 settings = get_settings()
@@ -54,6 +54,10 @@ OPENAPI_TAGS = [
     {
         "name": "Vision Estimation",
         "description": "Photo-assisted bulk inventory. Container library, confidence math, force-weigh rules.",
+    },
+    {
+        "name": "What-If Simulator",
+        "description": "Scenario simulation. ADVISORY ONLY - never executes actions.",
     },
     {
         "name": "Audit Trail",
@@ -248,6 +252,7 @@ app.include_router(pricewatch.router, prefix="/api/v1")
 app.include_router(vendors.router, prefix="/api/v1")
 app.include_router(inventory.router, prefix="/api/v1")
 app.include_router(vision.router, prefix="/api/v1")
+app.include_router(whatif.router, prefix="/api/v1")
 app.include_router(mocks.router, prefix="/api/v1")
 
 
