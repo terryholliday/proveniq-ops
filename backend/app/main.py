@@ -13,7 +13,7 @@ from typing import AsyncGenerator
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
-from app.api import bishop, inventory, mocks, stockout, vendors
+from app.api import bishop, inventory, mocks, receiving, stockout, vendors
 from app.core.config import get_settings
 
 settings = get_settings()
@@ -27,6 +27,7 @@ async def lifespan(app: FastAPI) -> AsyncGenerator[None, None]:
     print(f"Environment: {settings.app_env}")
     print("Bishop FSM: IDLE")
     print("Bishop Stockout Engine: Ready")
+    print("Bishop Receiving Engine: Ready")
     print("Vendor Bridge: Ready")
     print("Mock systems: Ledger, ClaimsIQ, Capital")
     yield
@@ -45,6 +46,7 @@ app = FastAPI(
 
 - **Bishop FSM** — Deterministic operational intelligence interface
 - **Bishop Stockout Engine** — Predictive stockout alerts with burn rate analysis
+- **Bishop Receiving Engine** — Smart scan-to-PO reconciliation
 - **Vendor Bridge** — Multi-vendor aggregation with automatic failover
 - **Synthetic Eye** — AR inventory scanning (mobile integration)
 - **Smart Par Engine** — Intelligent reorder recommendations
@@ -83,6 +85,7 @@ app.add_middleware(
 # Register API routers
 app.include_router(bishop.router, prefix="/api/v1")
 app.include_router(stockout.router, prefix="/api/v1")
+app.include_router(receiving.router, prefix="/api/v1")
 app.include_router(vendors.router, prefix="/api/v1")
 app.include_router(inventory.router, prefix="/api/v1")
 app.include_router(mocks.router, prefix="/api/v1")
