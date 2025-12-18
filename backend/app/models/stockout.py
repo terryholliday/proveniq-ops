@@ -1,6 +1,8 @@
 """
 PROVENIQ Ops - Predictive Stockout Schemas
 Bishop foresight engine data contracts
+
+RULE: No floats for money/quantities. Use MoneyMicros/Quantity/Rate.
 """
 
 import uuid
@@ -10,6 +12,8 @@ from enum import Enum
 from typing import Optional
 
 from pydantic import BaseModel, Field
+
+from app.core.types import MoneyMicros, Quantity, IntQuantity, Rate
 
 
 class AlertType(str, Enum):
@@ -31,8 +35,8 @@ class ReorderRecommendation(BaseModel):
     """Pre-built reorder action from Bishop."""
     vendor_id: uuid.UUID
     vendor_name: str
-    reorder_qty: int = Field(..., gt=0)
-    estimated_cost: Decimal = Field(..., gt=0)
+    reorder_qty: IntQuantity = Field(..., gt=0)
+    estimated_cost_micros: MoneyMicros = Field(..., gt=0)
     lead_time_hours: int
     requires_approval: bool = True
 
@@ -46,10 +50,10 @@ class StockoutAlert(BaseModel):
     severity: AlertSeverity
     product_id: uuid.UUID
     product_name: str
-    current_on_hand: int
-    safety_stock: int
-    projected_hours_to_stockout: float
-    confidence: float = Field(..., ge=0.0, le=1.0)
+    current_on_hand: IntQuantity
+    safety_stock: IntQuantity
+    projected_hours_to_stockout: Quantity  # Decimal, not float
+    confidence: Rate = Field(..., ge=0, le=1)
     recommended_action: Optional[ReorderRecommendation] = None
     generated_at: datetime = Field(default_factory=datetime.utcnow)
     
@@ -79,15 +83,15 @@ class StockoutAlert(BaseModel):
 class InventoryLevel(BaseModel):
     """Current inventory state for a product."""
     product_id: uuid.UUID
-    on_hand_qty: int = Field(..., ge=0)
-    safety_stock: int = Field(0, ge=0)
+    on_hand_qty: IntQuantity = Field(..., ge=0)
+    safety_stock: IntQuantity = Field(0, ge=0)
     location_id: Optional[str] = None
 
 
 class ScanEvent(BaseModel):
     """Individual scan event for burn rate calculation."""
     product_id: uuid.UUID
-    qty_delta: int  # negative = consumption, positive = receiving
+    qty_delta: int  # negative = consumption, positive = receiving (int OK for delta)
     timestamp: datetime
     location_id: Optional[str] = None
     scan_type: str = "consumption"  # consumption, receiving, adjustment
@@ -96,10 +100,10 @@ class ScanEvent(BaseModel):
 class HistoricalUsage(BaseModel):
     """Aggregated usage statistics for a product."""
     product_id: uuid.UUID
-    avg_daily_burn_7d: float = Field(..., ge=0)
-    avg_daily_burn_30d: float = Field(..., ge=0)
-    avg_daily_burn_90d: float = Field(..., ge=0)
-    variance_coefficient: float = Field(0.0, ge=0)  # demand volatility
+    avg_daily_burn_7d: Quantity = Field(..., ge=0)  # Decimal, not float
+    avg_daily_burn_30d: Quantity = Field(..., ge=0)
+    avg_daily_burn_90d: Quantity = Field(..., ge=0)
+    variance_coefficient: Quantity = Field(default=Decimal("0"), ge=0)  # demand volatility
     last_calculated: datetime = Field(default_factory=datetime.utcnow)
 
 
@@ -109,7 +113,7 @@ class VendorLeadTime(BaseModel):
     vendor_id: uuid.UUID
     vendor_name: str
     avg_lead_time_hours: int = Field(..., ge=0)
-    reliability_score: float = Field(1.0, ge=0, le=1)  # historical on-time %
+    reliability_score: Rate = Field(default=Decimal("1"), ge=0, le=1)  # historical on-time %
 
 
 class OpenPurchaseOrder(BaseModel):
@@ -117,7 +121,7 @@ class OpenPurchaseOrder(BaseModel):
     order_id: uuid.UUID
     product_id: uuid.UUID
     vendor_id: uuid.UUID
-    qty_ordered: int = Field(..., gt=0)
+    qty_ordered: IntQuantity = Field(..., gt=0)
     expected_delivery: datetime
     status: str = "pending"  # pending, shipped, delayed
 

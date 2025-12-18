@@ -1,6 +1,8 @@
 """
 PROVENIQ Ops - Smart Receiving Schemas
 Bishop scan-to-PO reconciliation data contracts
+
+RULE: No floats for money/quantities. Use MoneyMicros/IntQuantity.
 """
 
 import uuid
@@ -10,6 +12,8 @@ from enum import Enum
 from typing import Optional
 
 from pydantic import BaseModel, Field
+
+from app.core.types import MoneyMicros, IntQuantity, Quantity
 
 
 class DiscrepancyType(str, Enum):
@@ -45,9 +49,9 @@ class POLineItem(BaseModel):
     product_id: uuid.UUID
     product_name: str
     vendor_sku: str
-    quantity_ordered: int = Field(..., gt=0)
-    unit_price: Decimal = Field(..., gt=0)
-    quantity_received: int = Field(0, ge=0)
+    quantity_ordered: IntQuantity = Field(..., gt=0)
+    unit_price_micros: MoneyMicros = Field(..., gt=0)
+    quantity_received: IntQuantity = Field(0, ge=0)
 
 
 class PurchaseOrder(BaseModel):
@@ -69,7 +73,7 @@ class DockScan(BaseModel):
     barcode: str
     product_id: Optional[uuid.UUID] = None
     product_name: Optional[str] = None
-    quantity_scanned: int = Field(..., gt=0)
+    quantity_scanned: IntQuantity = Field(..., gt=0)
     scanned_at: datetime = Field(default_factory=datetime.utcnow)
     scanned_by: str = "bishop"
     location: str = "dock"
@@ -84,7 +88,7 @@ class VendorSubstitutionRule(BaseModel):
     original_product_id: uuid.UUID
     substitute_product_id: uuid.UUID
     substitute_sku: str
-    price_adjustment: Decimal = Decimal("0.00")
+    price_adjustment_micros: MoneyMicros = 0  # Can be negative for credit
     requires_approval: bool = True
     valid_until: Optional[datetime] = None
 
@@ -95,13 +99,13 @@ class LineItemDiscrepancy(BaseModel):
     product_id: uuid.UUID
     product_name: str
     discrepancy_type: DiscrepancyType
-    expected_qty: int
-    received_qty: int
-    variance: int  # positive = overage, negative = short
+    expected_qty: IntQuantity
+    received_qty: IntQuantity
+    variance: int  # positive = overage, negative = short (int OK for delta)
     substitute_product_id: Optional[uuid.UUID] = None
     substitute_name: Optional[str] = None
     damage_notes: Optional[str] = None
-    cost_impact: Decimal = Decimal("0.00")
+    cost_impact_micros: MoneyMicros = 0
 
 
 class ReceivingReconciliation(BaseModel):
@@ -121,9 +125,9 @@ class ReceivingReconciliation(BaseModel):
     substitutions: int
     damaged_items: int
     discrepancies: list[LineItemDiscrepancy]
-    total_expected_value: Decimal
-    total_received_value: Decimal
-    variance_value: Decimal
+    total_expected_value_micros: MoneyMicros
+    total_received_value_micros: MoneyMicros
+    variance_value_micros: MoneyMicros  # Can be negative
     requires_confirmation: bool = True
     recommended_action: str
     reconciled_at: datetime = Field(default_factory=datetime.utcnow)

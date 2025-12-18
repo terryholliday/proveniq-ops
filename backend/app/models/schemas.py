@@ -1,6 +1,9 @@
 """
 PROVENIQ Ops - Pydantic Schemas
 Strict validation for all request/response bodies
+
+RULE: No floats allowed for money or quantities.
+      Money uses MoneyMicros (int), Quantity uses Decimal (serialized as string).
 """
 
 import uuid
@@ -10,6 +13,8 @@ from enum import Enum
 from typing import Literal, Optional
 
 from pydantic import BaseModel, ConfigDict, Field, field_validator
+
+from app.core.types import MoneyMicros, Quantity, IntQuantity, Rate, Money
 
 
 # =============================================================================
@@ -113,8 +118,8 @@ class VendorProductBase(BaseModel):
     vendor_id: uuid.UUID
     product_id: uuid.UUID
     vendor_sku: str = Field(..., min_length=1, max_length=100)
-    current_price: Decimal = Field(..., gt=0)
-    stock_available: Optional[int] = Field(None, ge=0)
+    current_price_micros: MoneyMicros = Field(..., gt=0, description="Price in micros (1 USD = 1,000,000)")
+    stock_available: Optional[IntQuantity] = Field(None, ge=0)
 
 
 class VendorProductRead(VendorProductBase):
@@ -174,8 +179,8 @@ class OrderStatus(str, Enum):
 class OrderItemCreate(BaseModel):
     """Order line item creation payload."""
     product_id: uuid.UUID
-    quantity: int = Field(..., gt=0)
-    unit_price: Decimal = Field(..., gt=0)
+    quantity: IntQuantity = Field(..., gt=0)
+    unit_price_micros: MoneyMicros = Field(..., gt=0, description="Price in micros")
     vendor_product_id: Optional[uuid.UUID] = None
 
 
@@ -192,8 +197,8 @@ class OrderItemRead(BaseModel):
     id: uuid.UUID
     product_id: uuid.UUID
     vendor_product_id: Optional[uuid.UUID]
-    quantity: int
-    unit_price: Decimal
+    quantity: IntQuantity
+    unit_price_micros: MoneyMicros
 
 
 class OrderRead(BaseModel):
@@ -203,11 +208,11 @@ class OrderRead(BaseModel):
     id: uuid.UUID
     vendor_id: uuid.UUID
     status: OrderStatus
-    total_amount: Optional[Decimal]
-    blocked_reason: Optional[str]
+    total_amount_micros: Optional[MoneyMicros] = None
+    blocked_reason: Optional[str] = None
     created_at: datetime
     updated_at: datetime
-    submitted_at: Optional[datetime]
+    submitted_at: Optional[datetime] = None
     items: list[OrderItemRead] = []
 
 
@@ -217,14 +222,14 @@ class OrderRead(BaseModel):
 
 class LedgerCheckRequest(BaseModel):
     """Request to Ledger system for balance verification."""
-    order_total: Decimal = Field(..., gt=0)
+    order_total_micros: MoneyMicros = Field(..., gt=0, description="Order total in micros")
     currency: str = Field("USD", max_length=3)
 
 
 class LedgerCheckResponse(BaseModel):
     """Response from Ledger system."""
     sufficient_funds: bool
-    available_balance: Decimal
+    available_balance_micros: MoneyMicros
     currency: str
     checked_at: datetime = Field(default_factory=datetime.utcnow)
 
@@ -233,7 +238,7 @@ class RiskCheckRequest(BaseModel):
     """Request to ClaimsIQ for risk assessment."""
     product_id: uuid.UUID
     expiry_date: Optional[datetime] = None
-    quantity: int = Field(..., ge=0)
+    quantity: IntQuantity = Field(..., ge=0)
 
 
 class RiskCheckResponse(BaseModel):
@@ -249,7 +254,7 @@ class VendorQueryRequest(BaseModel):
     """Request to query vendor for product availability."""
     product_id: uuid.UUID
     vendor_sku: str
-    quantity_needed: int = Field(..., gt=0)
+    quantity_needed: IntQuantity = Field(..., gt=0)
 
 
 class VendorQueryResponse(BaseModel):
@@ -257,7 +262,7 @@ class VendorQueryResponse(BaseModel):
     vendor_id: uuid.UUID
     vendor_name: str
     in_stock: bool
-    available_quantity: int
-    unit_price: Decimal
+    available_quantity: IntQuantity
+    unit_price_micros: MoneyMicros
     estimated_delivery_hours: Optional[int] = None
     queried_at: datetime = Field(default_factory=datetime.utcnow)
