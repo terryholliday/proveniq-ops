@@ -17,7 +17,7 @@ from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.openapi.utils import get_openapi
 
-from app.api import audit, auditready, benchmark, bishop, bulk, cashflow, costdelay, custody, dag, expiration, ghost, inventory, memory, menucost, mocks, pricewatch, rebalance, receiving, salvage, scananomaly, stockout, vendors, vendorscore, vision, whatif
+from app.api import audit, auditready, benchmark, bishop, bulk, cashflow, costdelay, custody, dag, expiration, explain, ghost, inventory, memory, menucost, mocks, pricewatch, rebalance, receiving, salvage, scananomaly, stockout, vendors, vendorscore, vision, whatif
 from app.core.config import get_settings
 
 settings = get_settings()
@@ -86,6 +86,10 @@ OPENAPI_TAGS = [
     {
         "name": "Salvage Bridge",
         "description": "Asset disposition. Transfer, donate, or liquidate overstock and expiring items.",
+    },
+    {
+        "name": "Explain Engine",
+        "description": "Plain language explanations for any Bishop recommendation.",
     },
     {
         "name": "Audit Trail",
@@ -288,6 +292,7 @@ app.include_router(costdelay.router, prefix="/api/v1")
 app.include_router(vendorscore.router, prefix="/api/v1")
 app.include_router(benchmark.router, prefix="/api/v1")
 app.include_router(salvage.router, prefix="/api/v1")
+app.include_router(explain.router, prefix="/api/v1")
 app.include_router(mocks.router, prefix="/api/v1")
 
 
