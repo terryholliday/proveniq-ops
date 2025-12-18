@@ -17,7 +17,7 @@ from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.openapi.utils import get_openapi
 
-from app.api import audit, auditready, bishop, bulk, cashflow, costdelay, custody, dag, expiration, ghost, inventory, memory, menucost, mocks, pricewatch, rebalance, receiving, scananomaly, stockout, vendors, vendorscore, vision, whatif
+from app.api import audit, auditready, benchmark, bishop, bulk, cashflow, costdelay, custody, dag, expiration, ghost, inventory, memory, menucost, mocks, pricewatch, rebalance, receiving, scananomaly, stockout, vendors, vendorscore, vision, whatif
 from app.core.config import get_settings
 
 settings = get_settings()
@@ -78,6 +78,10 @@ OPENAPI_TAGS = [
     {
         "name": "Vendor Reliability",
         "description": "Score vendors on execution. Timeliness, fill accuracy, substitutions, price stability.",
+    },
+    {
+        "name": "Peer Benchmark",
+        "description": "Anonymous opt-in performance comparison. No peer identities exposed.",
     },
     {
         "name": "Audit Trail",
@@ -278,6 +282,7 @@ app.include_router(custody.router, prefix="/api/v1")
 app.include_router(auditready.router, prefix="/api/v1")
 app.include_router(costdelay.router, prefix="/api/v1")
 app.include_router(vendorscore.router, prefix="/api/v1")
+app.include_router(benchmark.router, prefix="/api/v1")
 app.include_router(mocks.router, prefix="/api/v1")
 
 
