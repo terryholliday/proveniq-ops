@@ -17,7 +17,7 @@ from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.openapi.utils import get_openapi
 
-from app.api import audit, bishop, dag, inventory, mocks, pricewatch, receiving, stockout, vendors
+from app.api import audit, bishop, dag, ghost, inventory, mocks, pricewatch, receiving, stockout, vendors
 from app.core.config import get_settings
 
 settings = get_settings()
@@ -54,6 +54,10 @@ OPENAPI_TAGS = [
     {
         "name": "Predictive Stockout",
         "description": "N11: Stockout risk detection with burn rate analysis and reorder recommendations.",
+    },
+    {
+        "name": "Ghost Inventory",
+        "description": "N12: Detect unscanned inventory indicating shrinkage. Loss-signal, not disciplinary tool.",
     },
     {
         "name": "Smart Receiving",
@@ -205,6 +209,7 @@ app.include_router(dag.router, prefix="/api/v1")
 app.include_router(audit.router, prefix="/api/v1")
 app.include_router(stockout.router, prefix="/api/v1")
 app.include_router(receiving.router, prefix="/api/v1")
+app.include_router(ghost.router, prefix="/api/v1")
 app.include_router(pricewatch.router, prefix="/api/v1")
 app.include_router(vendors.router, prefix="/api/v1")
 app.include_router(inventory.router, prefix="/api/v1")
