@@ -17,7 +17,7 @@ from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.openapi.utils import get_openapi
 
-from app.api import audit, bishop, cashflow, dag, expiration, ghost, inventory, menucost, mocks, pricewatch, rebalance, receiving, scananomaly, stockout, vendors
+from app.api import audit, bishop, bulk, cashflow, dag, expiration, ghost, inventory, menucost, mocks, pricewatch, rebalance, receiving, scananomaly, stockout, vendors
 from app.core.config import get_settings
 
 settings = get_settings()
@@ -46,6 +46,10 @@ OPENAPI_TAGS = [
     {
         "name": "DAG Governance",
         "description": "Bishop Decision DAG inspection and validation. The DAG is the single source of truth for Bishop logic.",
+    },
+    {
+        "name": "Bulk Normalization",
+        "description": "N5: Canonical Unit Model. Base/Handling/Measurement layers with confidence scoring.",
     },
     {
         "name": "Audit Trail",
@@ -226,6 +230,7 @@ app.add_middleware(
 # Register API routers
 app.include_router(bishop.router, prefix="/api/v1")
 app.include_router(dag.router, prefix="/api/v1")
+app.include_router(bulk.router, prefix="/api/v1")
 app.include_router(audit.router, prefix="/api/v1")
 app.include_router(cashflow.router, prefix="/api/v1")
 app.include_router(stockout.router, prefix="/api/v1")
