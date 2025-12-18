@@ -1,0 +1,816 @@
+# ============================================================================
+# BISHOP DECISION DAG - AUTHORITATIVE SOURCE OF TRUTH
+# ============================================================================
+# 
+# This file defines the complete decision graph for Bishop.
+# Code MUST conform to this file — not the other way around.
+#
+# Rules:
+#   - If logic is not declared here → it's invalid code
+#   - Nodes run ONLY when upstream dependencies are satisfied
+#   - No side effects unless explicitly declared
+#   - All outputs are typed contracts
+#
+# Layer Structure:
+#   N0-N4:   Data Snapshots (raw inputs)
+#   N10-N18: Signals (derived metrics)
+#   N20-N25: Policy Gates (business rules)
+#   N30-N37: Proposals (actionable recommendations)
+#   N40-N46: Execution (state changes)
+#   N50-N52: Telemetry (audit & observability)
+#
+# ============================================================================
+
+version: "1.0"
+schema_version: 1
+last_updated: "2024-12-18"
+owner: "Bishop Core Team"
+
+# ============================================================================
+# LAYER 0: DATA SNAPSHOTS (N0-N4)
+# Raw data inputs - no computation, just capture
+# ============================================================================
+
+nodes:
+  # --------------------------------------------------------------------------
+  # N0: Inventory Snapshot
+  # --------------------------------------------------------------------------
+  N0_inventory_snapshot:
+    layer: 0
+    name: "Inventory Snapshot"
+    description: "Current inventory levels from scan events"
+    depends_on: []
+    inputs: []
+    outputs:
+      - name: inventory_levels
+        type: "InventoryLevel[]"
+        schema:
+          product_id: uuid
+          on_hand_qty: integer
+          safety_stock: integer
+          location_id: string?
+          captured_at: datetime
+    invariants:
+      - "on_hand_qty >= 0"
+      - "safety_stock >= 0"
+    side_effects: none
+    cacheable: true
+    ttl_seconds: 300
+
+  # --------------------------------------------------------------------------
+  # N1: Scan Events
+  # --------------------------------------------------------------------------
+  N1_scan_events:
+    layer: 0
+    name: "Scan Events"
+    description: "Raw scan events from Synthetic Eye and manual entry"
+    depends_on: []
+    inputs: []
+    outputs:
+      - name: scan_events
+        type: "ScanEvent[]"
+        schema:
+          product_id: uuid
+          qty_delta: integer
+          timestamp: datetime
+          location_id: string?
+          scan_type: enum[consumption, receiving, adjustment, transfer, spoilage]
+    invariants:
+      - "timestamp <= now()"
+    side_effects: none
+    cacheable: true
+    ttl_seconds: 60
+
+  # --------------------------------------------------------------------------
+  # N2: Purchase Orders
+  # --------------------------------------------------------------------------
+  N2_purchase_orders:
+    layer: 0
+    name: "Purchase Orders"
+    description: "Open and recent purchase orders"
+    depends_on: []
+    inputs: []
+    outputs:
+      - name: purchase_orders
+        type: "PurchaseOrder[]"
+        schema:
+          po_id: uuid
+          vendor_id: uuid
+          status: enum[pending, partially_received, received, closed, disputed]
+          line_items: POLineItem[]
+          expected_delivery: datetime
+    invariants:
+      - "line_items.length > 0"
+    side_effects: none
+    cacheable: true
+    ttl_seconds: 300
+
+  # --------------------------------------------------------------------------
+  # N3: Vendor Lead Times
+  # --------------------------------------------------------------------------
+  N3_vendor_lead_times:
+    layer: 0
+    name: "Vendor Lead Times"
+    description: "Historical lead time data per vendor-product pair"
+    depends_on: []
+    inputs: []
+    outputs:
+      - name: vendor_lead_times
+        type: "VendorLeadTime[]"
+        schema:
+          product_id: uuid
+          vendor_id: uuid
+          avg_lead_time_hours: integer
+          reliability_score: decimal
+    invariants:
+      - "avg_lead_time_hours >= 0"
+      - "reliability_score >= 0.0 AND reliability_score <= 1.0"
+    side_effects: none
+    cacheable: true
+    ttl_seconds: 3600
+
+  # --------------------------------------------------------------------------
+  # N4: Vendor Catalog
+  # --------------------------------------------------------------------------
+  N4_vendor_catalog:
+    layer: 0
+    name: "Vendor Catalog"
+    description: "Product availability and pricing across vendors"
+    depends_on: []
+    inputs: []
+    outputs:
+      - name: vendor_products
+        type: "VendorProduct[]"
+        schema:
+          vendor_id: uuid
+          product_id: uuid
+          vendor_sku: string
+          current_price: decimal
+          stock_available: integer?
+    invariants:
+      - "current_price > 0"
+    side_effects: none
+    cacheable: true
+    ttl_seconds: 1800
+
+# ============================================================================
+# LAYER 1: SIGNALS (N10-N18)
+# Derived metrics and pattern detection
+# ============================================================================
+
+  # --------------------------------------------------------------------------
+  # N10: Demand Forecast
+  # --------------------------------------------------------------------------
+  N10_demand_forecast:
+    layer: 1
+    name: "Demand Forecast"
+    description: "Historical usage aggregation and burn rate calculation"
+    depends_on:
+      - N1_scan_events
+    inputs:
+      - scan_events
+    outputs:
+      - name: demand_forecast
+        type: "DemandForecast[]"
+        schema:
+          product_id: uuid
+          avg_daily_burn_7d: decimal
+          avg_daily_burn_30d: decimal
+          avg_daily_burn_90d: decimal
+          realtime_burn_rate: decimal
+          burn_acceleration: decimal
+          variance_coefficient: decimal
+          confidence: decimal
+    invariants:
+      - "confidence >= 0.0 AND confidence <= 1.0"
+      - "avg_daily_burn_7d >= 0"
+    side_effects: none
+    cacheable: true
+    ttl_seconds: 300
+
+  # --------------------------------------------------------------------------
+  # N11: Stockout Risk
+  # --------------------------------------------------------------------------
+  N11_stockout_risk:
+    layer: 1
+    name: "Stockout Risk"
+    description: "Predictive stockout detection with time-to-stockout projection"
+    depends_on:
+      - N0_inventory_snapshot
+      - N10_demand_forecast
+      - N3_vendor_lead_times
+    inputs:
+      - inventory_levels
+      - demand_forecast
+      - vendor_lead_times
+    outputs:
+      - name: stockout_risks
+        type: "StockoutRisk[]"
+        schema:
+          product_id: uuid
+          projected_hours_to_stockout: decimal
+          confidence: decimal
+          severity: enum[low, medium, high, critical]
+          alert_type: enum[PREDICTIVE_STOCKOUT, WARNING, CRITICAL]
+    invariants:
+      - "confidence >= 0.6 OR alert_type == 'WARNING'"
+      - "projected_hours_to_stockout >= 0"
+    side_effects: none
+    cacheable: true
+    ttl_seconds: 300
+
+  # --------------------------------------------------------------------------
+  # N12: Receiving Reconciliation
+  # --------------------------------------------------------------------------
+  N12_receiving_reconciliation:
+    layer: 1
+    name: "Receiving Reconciliation"
+    description: "Scan-to-PO matching and discrepancy detection"
+    depends_on:
+      - N2_purchase_orders
+    inputs:
+      - purchase_orders
+      - dock_scans
+    outputs:
+      - name: reconciliation_results
+        type: "ReconciliationResult[]"
+        schema:
+          po_id: uuid
+          lines_matched: integer
+          short_items: integer
+          overages: integer
+          substitutions: integer
+          damaged_items: integer
+          variance_value: decimal
+          alert_type: enum[RECEIVING_COMPLETE, RECEIVING_PARTIAL, RECEIVING_DISCREPANCY, SUBSTITUTION_DETECTED]
+    invariants:
+      - "lines_matched >= 0"
+      - "short_items >= 0"
+    side_effects: none
+    cacheable: false
+    ttl_seconds: 0
+
+  # --------------------------------------------------------------------------
+  # N13: Price Arbitrage
+  # --------------------------------------------------------------------------
+  N13_price_arbitrage:
+    layer: 1
+    name: "Price Arbitrage"
+    description: "Cross-vendor price comparison for equivalent SKUs"
+    depends_on:
+      - N4_vendor_catalog
+    inputs:
+      - vendor_products
+    outputs:
+      - name: price_opportunities
+        type: "PriceOpportunity[]"
+        schema:
+          product_id: uuid
+          current_vendor_id: uuid
+          current_price: decimal
+          best_vendor_id: uuid
+          best_price: decimal
+          savings_percent: decimal
+    invariants:
+      - "savings_percent >= 0"
+    side_effects: none
+    cacheable: true
+    ttl_seconds: 1800
+
+  # --------------------------------------------------------------------------
+  # N14: Expiration Risk
+  # --------------------------------------------------------------------------
+  N14_expiration_risk:
+    layer: 1
+    name: "Expiration Risk"
+    description: "Product expiry tracking and liability flagging"
+    depends_on:
+      - N0_inventory_snapshot
+    inputs:
+      - inventory_levels
+      - product_expiry_dates
+    outputs:
+      - name: expiration_risks
+        type: "ExpirationRisk[]"
+        schema:
+          product_id: uuid
+          days_to_expiry: integer
+          risk_level: enum[none, low, medium, high, critical]
+          liability_flags: string[]
+          recommended_action: string?
+    invariants:
+      - "risk_level == 'critical' IMPLIES days_to_expiry <= 0"
+    side_effects: none
+    cacheable: true
+    ttl_seconds: 3600
+
+  # --------------------------------------------------------------------------
+  # N15: Scan Anomaly Detection
+  # --------------------------------------------------------------------------
+  N15_scan_anomaly:
+    layer: 1
+    name: "Scan Anomaly Detection"
+    description: "Unusual scan pattern detection for loss prevention"
+    depends_on:
+      - N1_scan_events
+    inputs:
+      - scan_events
+    outputs:
+      - name: scan_anomalies
+        type: "ScanAnomaly[]"
+        schema:
+          anomaly_id: uuid
+          product_id: uuid
+          anomaly_type: enum[volume_spike, off_hours, repeated_scan, pattern_deviation]
+          severity: enum[low, medium, high]
+          details: string
+    invariants: []
+    side_effects: none
+    cacheable: true
+    ttl_seconds: 300
+
+# ============================================================================
+# LAYER 2: POLICY GATES (N20-N25)
+# Business rule validation - approve/block decisions
+# ============================================================================
+
+  # --------------------------------------------------------------------------
+  # N20: Ledger Balance Gate
+  # --------------------------------------------------------------------------
+  N20_ledger_gate:
+    layer: 2
+    name: "Ledger Balance Gate"
+    description: "Cash availability verification before order execution"
+    depends_on: []
+    inputs:
+      - order_total
+      - ledger_balance
+    outputs:
+      - name: ledger_approval
+        type: "LedgerApproval"
+        schema:
+          approved: boolean
+          available_balance: decimal
+          shortfall: decimal?
+          blocked_reason: string?
+    invariants:
+      - "approved == true IMPLIES available_balance >= order_total"
+      - "approved == false IMPLIES blocked_reason != null"
+    side_effects: none
+    cacheable: false
+    ttl_seconds: 0
+
+  # --------------------------------------------------------------------------
+  # N21: Risk Gate
+  # --------------------------------------------------------------------------
+  N21_risk_gate:
+    layer: 2
+    name: "Risk Gate"
+    description: "ClaimsIQ risk assessment gate"
+    depends_on:
+      - N14_expiration_risk
+    inputs:
+      - expiration_risks
+      - product_risk_categories
+    outputs:
+      - name: risk_approval
+        type: "RiskApproval"
+        schema:
+          approved: boolean
+          risk_level: enum[none, low, medium, high, critical]
+          liability_flags: string[]
+          blocked_reason: string?
+    invariants:
+      - "risk_level IN ['high', 'critical'] IMPLIES approved == false"
+    side_effects: none
+    cacheable: false
+    ttl_seconds: 0
+
+  # --------------------------------------------------------------------------
+  # N22: Vendor Availability Gate
+  # --------------------------------------------------------------------------
+  N22_vendor_gate:
+    layer: 2
+    name: "Vendor Availability Gate"
+    description: "Verify vendor can fulfill order"
+    depends_on:
+      - N4_vendor_catalog
+      - N3_vendor_lead_times
+    inputs:
+      - vendor_products
+      - vendor_lead_times
+      - requested_items
+    outputs:
+      - name: vendor_approval
+        type: "VendorApproval"
+        schema:
+          approved: boolean
+          vendor_id: uuid
+          can_fulfill: boolean
+          partial_fill_qty: integer?
+          alternate_vendor_id: uuid?
+    invariants:
+      - "approved == true IMPLIES can_fulfill == true"
+    side_effects: none
+    cacheable: false
+    ttl_seconds: 0
+
+  # --------------------------------------------------------------------------
+  # N23: Confidence Gate
+  # --------------------------------------------------------------------------
+  N23_confidence_gate:
+    layer: 2
+    name: "Confidence Gate"
+    description: "Minimum confidence threshold for automated actions"
+    depends_on: []
+    inputs:
+      - signal_confidence
+      - action_type
+    outputs:
+      - name: confidence_approval
+        type: "ConfidenceApproval"
+        schema:
+          approved: boolean
+          confidence: decimal
+          threshold: decimal
+          downgrade_to_warning: boolean
+    invariants:
+      - "confidence < 0.6 IMPLIES downgrade_to_warning == true"
+      - "action_type == 'auto_execute' IMPLIES confidence >= 0.85"
+    side_effects: none
+    cacheable: false
+    ttl_seconds: 0
+
+# ============================================================================
+# LAYER 3: PROPOSALS (N30-N37)
+# Actionable recommendations requiring approval
+# ============================================================================
+
+  # --------------------------------------------------------------------------
+  # N30: Reorder Proposal
+  # --------------------------------------------------------------------------
+  N30_reorder_proposal:
+    layer: 3
+    name: "Reorder Proposal"
+    description: "Generate reorder recommendation from stockout risk"
+    depends_on:
+      - N11_stockout_risk
+      - N20_ledger_gate
+      - N22_vendor_gate
+      - N23_confidence_gate
+    inputs:
+      - stockout_risks
+      - ledger_approval
+      - vendor_approval
+      - confidence_approval
+    outputs:
+      - name: reorder_proposals
+        type: "ReorderProposal[]"
+        schema:
+          proposal_id: uuid
+          product_id: uuid
+          vendor_id: uuid
+          reorder_qty: integer
+          estimated_cost: decimal
+          requires_approval: boolean
+          auto_execute_eligible: boolean
+          rationale: string
+    invariants:
+      - "reorder_qty > 0"
+      - "auto_execute_eligible == true IMPLIES requires_approval == false"
+      - "ledger_approval.approved == false IMPLIES proposal blocked"
+    side_effects: none
+    cacheable: false
+    ttl_seconds: 0
+
+  # --------------------------------------------------------------------------
+  # N31: Receiving Adjustment Proposal
+  # --------------------------------------------------------------------------
+  N31_receiving_proposal:
+    layer: 3
+    name: "Receiving Adjustment Proposal"
+    description: "Propose adjustments for receiving discrepancies"
+    depends_on:
+      - N12_receiving_reconciliation
+    inputs:
+      - reconciliation_results
+    outputs:
+      - name: receiving_proposals
+        type: "ReceivingProposal[]"
+        schema:
+          proposal_id: uuid
+          po_id: uuid
+          action: enum[accept, accept_with_adjustments, dispute, reject]
+          adjustments: AdjustmentLine[]
+          requires_confirmation: boolean
+    invariants:
+      - "requires_confirmation == true"  # GUARDRAIL: Never auto-close PO
+    side_effects: none
+    cacheable: false
+    ttl_seconds: 0
+
+  # --------------------------------------------------------------------------
+  # N32: Emergency Reorder Proposal
+  # --------------------------------------------------------------------------
+  N32_emergency_reorder:
+    layer: 3
+    name: "Emergency Reorder Proposal"
+    description: "One-tap emergency reorder for critical stockouts"
+    depends_on:
+      - N11_stockout_risk
+      - N20_ledger_gate
+      - N22_vendor_gate
+    inputs:
+      - stockout_risks
+      - ledger_approval
+      - vendor_approval
+    outputs:
+      - name: emergency_proposals
+        type: "EmergencyProposal[]"
+        schema:
+          proposal_id: uuid
+          product_id: uuid
+          vendor_id: uuid
+          reorder_qty: integer
+          estimated_cost: decimal
+          eta_hours: integer
+          one_tap_eligible: boolean
+    invariants:
+      - "stockout_risks.severity == 'critical'"
+      - "one_tap_eligible IMPLIES ledger_approval.approved AND vendor_approval.approved"
+    side_effects: none
+    cacheable: false
+    ttl_seconds: 0
+
+  # --------------------------------------------------------------------------
+  # N33: Vendor Switch Proposal
+  # --------------------------------------------------------------------------
+  N33_vendor_switch:
+    layer: 3
+    name: "Vendor Switch Proposal"
+    description: "Propose vendor switch based on price or availability"
+    depends_on:
+      - N13_price_arbitrage
+      - N22_vendor_gate
+    inputs:
+      - price_opportunities
+      - vendor_approval
+    outputs:
+      - name: switch_proposals
+        type: "VendorSwitchProposal[]"
+        schema:
+          proposal_id: uuid
+          product_id: uuid
+          from_vendor_id: uuid
+          to_vendor_id: uuid
+          reason: enum[price, availability, reliability]
+          savings_amount: decimal
+          rationale: string
+    invariants:
+      - "rationale != null"  # Must log reason
+    side_effects: none
+    cacheable: false
+    ttl_seconds: 0
+
+  # --------------------------------------------------------------------------
+  # N34: Expiration Action Proposal
+  # --------------------------------------------------------------------------
+  N34_expiration_action:
+    layer: 3
+    name: "Expiration Action Proposal"
+    description: "Propose actions for expiring inventory"
+    depends_on:
+      - N14_expiration_risk
+      - N21_risk_gate
+    inputs:
+      - expiration_risks
+      - risk_approval
+    outputs:
+      - name: expiration_proposals
+        type: "ExpirationProposal[]"
+        schema:
+          proposal_id: uuid
+          product_id: uuid
+          current_qty: integer
+          action: enum[discount, transfer, donate, dispose]
+          estimated_loss: decimal
+          liability_mitigated: boolean
+    invariants:
+      - "risk_level == 'critical' IMPLIES action IN ['donate', 'dispose']"
+    side_effects: none
+    cacheable: false
+    ttl_seconds: 0
+
+# ============================================================================
+# LAYER 4: EXECUTION (N40-N46)
+# State changes - all require explicit approval unless auto-eligible
+# ============================================================================
+
+  # --------------------------------------------------------------------------
+  # N40: Execute Reorder
+  # --------------------------------------------------------------------------
+  N40_execute_reorder:
+    layer: 4
+    name: "Execute Reorder"
+    description: "Submit reorder to vendor"
+    depends_on:
+      - N30_reorder_proposal
+    inputs:
+      - reorder_proposals
+      - user_approval
+    outputs:
+      - name: order_confirmation
+        type: "OrderConfirmation"
+        schema:
+          order_id: uuid
+          vendor_id: uuid
+          status: enum[queued, submitted, confirmed]
+          total_amount: decimal
+          eta: datetime
+    invariants:
+      - "user_approval == true OR proposal.auto_execute_eligible == true"
+    side_effects:
+      - "CREATE order record"
+      - "RESERVE ledger funds"
+    cacheable: false
+    ttl_seconds: 0
+
+  # --------------------------------------------------------------------------
+  # N41: Execute Receiving Close
+  # --------------------------------------------------------------------------
+  N41_execute_receiving:
+    layer: 4
+    name: "Execute Receiving Close"
+    description: "Close PO and update inventory"
+    depends_on:
+      - N31_receiving_proposal
+    inputs:
+      - receiving_proposals
+      - user_confirmation
+    outputs:
+      - name: receiving_confirmation
+        type: "ReceivingConfirmation"
+        schema:
+          po_id: uuid
+          status: enum[received, partially_received, disputed]
+          inventory_updated: boolean
+    invariants:
+      - "user_confirmation == true"  # GUARDRAIL: Never auto-close
+    side_effects:
+      - "UPDATE po.status"
+      - "UPDATE inventory levels"
+    cacheable: false
+    ttl_seconds: 0
+
+  # --------------------------------------------------------------------------
+  # N42: Execute Vendor Switch
+  # --------------------------------------------------------------------------
+  N42_execute_vendor_switch:
+    layer: 4
+    name: "Execute Vendor Switch"
+    description: "Update preferred vendor for product"
+    depends_on:
+      - N33_vendor_switch
+    inputs:
+      - switch_proposals
+      - user_approval
+    outputs:
+      - name: switch_confirmation
+        type: "SwitchConfirmation"
+        schema:
+          product_id: uuid
+          new_vendor_id: uuid
+          effective_date: datetime
+    invariants:
+      - "user_approval == true"
+    side_effects:
+      - "UPDATE vendor_preference"
+      - "LOG switch_audit"
+    cacheable: false
+    ttl_seconds: 0
+
+# ============================================================================
+# LAYER 5: TELEMETRY (N50-N52)
+# Audit and observability - read-only, no side effects
+# ============================================================================
+
+  # --------------------------------------------------------------------------
+  # N50: Decision Audit Log
+  # --------------------------------------------------------------------------
+  N50_decision_audit:
+    layer: 5
+    name: "Decision Audit Log"
+    description: "Immutable log of all Bishop decisions"
+    depends_on: []
+    inputs:
+      - all_node_outputs
+    outputs:
+      - name: audit_entries
+        type: "AuditEntry[]"
+        schema:
+          entry_id: uuid
+          node_id: string
+          inputs_hash: string
+          outputs_hash: string
+          timestamp: datetime
+          execution_ms: integer
+    invariants:
+      - "entries are append-only"
+    side_effects:
+      - "APPEND audit_log"  # Exception: audit is allowed
+    cacheable: false
+    ttl_seconds: 0
+
+  # --------------------------------------------------------------------------
+  # N51: Performance Metrics
+  # --------------------------------------------------------------------------
+  N51_performance_metrics:
+    layer: 5
+    name: "Performance Metrics"
+    description: "Node execution timing and throughput"
+    depends_on: []
+    inputs:
+      - node_execution_stats
+    outputs:
+      - name: metrics
+        type: "NodeMetrics[]"
+        schema:
+          node_id: string
+          avg_execution_ms: decimal
+          p99_execution_ms: decimal
+          cache_hit_rate: decimal
+          error_rate: decimal
+    invariants: []
+    side_effects: none
+    cacheable: true
+    ttl_seconds: 60
+
+  # --------------------------------------------------------------------------
+  # N52: DAG Health
+  # --------------------------------------------------------------------------
+  N52_dag_health:
+    layer: 5
+    name: "DAG Health"
+    description: "Overall DAG execution health and dependency status"
+    depends_on: []
+    inputs:
+      - all_node_status
+    outputs:
+      - name: dag_health
+        type: "DAGHealth"
+        schema:
+          healthy: boolean
+          nodes_active: integer
+          nodes_stale: integer
+          last_full_execution: datetime
+          bottleneck_node: string?
+    invariants: []
+    side_effects: none
+    cacheable: true
+    ttl_seconds: 30
+
+# ============================================================================
+# EXECUTION POLICIES
+# ============================================================================
+
+policies:
+  auto_execution:
+    description: "Conditions for automatic execution without user approval"
+    rules:
+      - "confidence >= 0.85"
+      - "severity == 'critical'"
+      - "ledger_approval.approved == true"
+      - "risk_approval.approved == true"
+    excluded_nodes:
+      - N41_execute_receiving  # Never auto-close PO
+      - N42_execute_vendor_switch  # Always require approval
+
+  cache_invalidation:
+    description: "When to invalidate cached node outputs"
+    triggers:
+      - "new scan_event"
+      - "inventory adjustment"
+      - "po status change"
+      - "vendor price update"
+
+  confidence_thresholds:
+    warning_only: 0.6
+    proposal_eligible: 0.75
+    auto_execute_eligible: 0.85
+
+# ============================================================================
+# VALIDATION RULES
+# ============================================================================
+
+validation:
+  on_startup:
+    - "All declared nodes must have corresponding module"
+    - "All dependencies must exist"
+    - "No circular dependencies"
+    - "All outputs must have schema"
+  
+  on_execution:
+    - "Inputs must be available before execution"
+    - "Outputs must match declared schema"
+    - "Invariants must hold"
+    - "Side effects must match declaration"
