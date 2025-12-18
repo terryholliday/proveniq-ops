@@ -5,6 +5,9 @@ Deterministic operational intelligence interface
 Bishop is NOT a chatbot.
 Bishop is a deterministic FSM with strict state transitions.
 All outputs are short, declarative, machine-like.
+
+AUDIT: All state transitions are logged to the audit service.
+       This data becomes ML training data.
 """
 
 import uuid
@@ -20,6 +23,8 @@ from app.models.schemas import (
     RiskCheckResponse,
     VendorQueryResponse,
 )
+from app.models.audit import ReasonCode
+from app.services.audit import audit_service
 
 
 class BishopFSM:
@@ -91,6 +96,18 @@ class BishopFSM:
             output_message=message,
         )
         self._transition_log.append(transition)
+        
+        # Log to audit service (permanent infrastructure)
+        audit_service.log_state_transition(
+            previous_state=previous.value if previous else None,
+            new_state=current.value,
+            trigger_event=trigger,
+            user_id=self._context.get("user_id"),
+            session_id=self._context.get("session_id"),
+            location_id=self._context.get("location_id"),
+            context_data=context,
+        )
+        
         return transition
     
     def _validate_transition(self, target: BishopState) -> bool:
@@ -222,6 +239,21 @@ class BishopFSM:
         # High/Critical risk → Block operation
         if risk_response.risk_level in ("high", "critical"):
             message = f"Risk level {risk_response.risk_level}. Operation blocked. {risk_response.recommended_action or 'Manual review required.'}"
+            
+            # Log block to audit service
+            audit_service.log_block(
+                blocked_action="order_processing",
+                entity_id=uuid.uuid4(),  # Would be actual order ID
+                entity_type="order",
+                blocker="risk_gate",
+                dag_node_id="N21_risk_gate",
+                reason_codes=[ReasonCode.RISK_TOO_HIGH],
+                reason_details={
+                    "risk_level": risk_response.risk_level,
+                    "liability_flags": risk_response.liability_flags,
+                },
+            )
+            
             self._log_transition(
                 self._state,
                 BishopState.IDLE,
@@ -274,6 +306,25 @@ class BishopFSM:
         if not ledger_response.sufficient_funds:
             shortfall = order_total - ledger_response.available_balance
             message = f"Ledger balance insufficient. Required: {order_total}. Available: {ledger_response.available_balance}. Shortfall: {shortfall}. Order blocked."
+            
+            # Log block to audit service
+            from app.core.types import Money
+            audit_service.log_block(
+                blocked_action="order_submission",
+                entity_id=uuid.uuid4(),  # Would be actual order ID
+                entity_type="order",
+                blocker="ledger_gate",
+                dag_node_id="N20_liquidity_gate",
+                reason_codes=[ReasonCode.INSUFFICIENT_FUNDS],
+                reason_details={
+                    "order_total": str(order_total),
+                    "available_balance": str(ledger_response.available_balance),
+                    "shortfall": str(shortfall),
+                },
+                blocked_value_micros=Money.from_dollars(order_total),
+                threshold_value_micros=Money.from_dollars(ledger_response.available_balance),
+            )
+            
             self._log_transition(
                 self._state,
                 BishopState.IDLE,
