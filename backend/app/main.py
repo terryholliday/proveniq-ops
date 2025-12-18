@@ -17,7 +17,7 @@ from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.openapi.utils import get_openapi
 
-from app.api import audit, bishop, dag, expiration, ghost, inventory, mocks, pricewatch, receiving, stockout, vendors
+from app.api import audit, bishop, dag, expiration, ghost, inventory, menucost, mocks, pricewatch, receiving, stockout, vendors
 from app.core.config import get_settings
 
 settings = get_settings()
@@ -62,6 +62,10 @@ OPENAPI_TAGS = [
     {
         "name": "Expiration Cascade",
         "description": "N13/N33: Surface expirations and convert waste into decisions. Donation respects compliance.",
+    },
+    {
+        "name": "Cost Per Serving",
+        "description": "N17/N37: Menu profitability from inventory costs. Price suggestions disabled by default.",
     },
     {
         "name": "Smart Receiving",
@@ -215,6 +219,7 @@ app.include_router(stockout.router, prefix="/api/v1")
 app.include_router(receiving.router, prefix="/api/v1")
 app.include_router(ghost.router, prefix="/api/v1")
 app.include_router(expiration.router, prefix="/api/v1")
+app.include_router(menucost.router, prefix="/api/v1")
 app.include_router(pricewatch.router, prefix="/api/v1")
 app.include_router(vendors.router, prefix="/api/v1")
 app.include_router(inventory.router, prefix="/api/v1")
