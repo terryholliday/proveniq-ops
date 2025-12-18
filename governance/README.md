@@ -4,11 +4,16 @@
 
 This directory contains the authoritative governance files for Bishop's decision engine.
 
+## The One Rule
+
+> **Signals detect. Policy decides. Proposals package. Approvals authorize. Execution commits. Telemetry proves.**
+
 ## Files
 
 | File | Purpose |
 |------|---------|
 | `bishop_dag.yaml` | **Authoritative DAG definition** — Code must conform to this |
+| `bishop_dag.mermaid` | **Visual DAG** — Auto-generated Mermaid diagram |
 
 ## Rules
 
@@ -16,17 +21,18 @@ This directory contains the authoritative governance files for Bishop's decision
 2. **If logic is not declared here → it's invalid code**
 3. **No node runs "because someone called it"** — nodes run because the DAG allows them
 4. **All side effects must be declared** — undeclared side effects = boot failure
+5. **Every execution requires approval token** — no exceptions except explicit auto-exec policy
 
 ## DAG Layers
 
-| Layer | Nodes | Purpose |
-|-------|-------|---------|
-| 0 | N0-N4 | **Data Snapshots** — Raw inputs, no computation |
-| 1 | N10-N18 | **Signals** — Derived metrics, pattern detection |
-| 2 | N20-N25 | **Policy Gates** — Business rule validation |
-| 3 | N30-N37 | **Proposals** — Actionable recommendations |
-| 4 | N40-N46 | **Execution** — State changes (require approval) |
-| 5 | N50-N52 | **Telemetry** — Audit and observability |
+| Layer | Nodes | Purpose | Side Effects |
+|-------|-------|---------|--------------|
+| 0 | N0-N4 | **Canonical Data Contracts** — Versioned snapshots | None |
+| 1 | N10-N18 | **Signals** — Pure detection, idempotent | None |
+| 2 | N20-N25 | **Policy Gates** — All "should we?" decisions | None |
+| 3 | N30-N37 | **Proposals** — Ready-to-approve payloads | None |
+| 4 | N40-N46 | **Execution** — State changes | Declared |
+| 5 | N50-N52 | **Telemetry** — Audit & metrics | Append-only |
 
 ## Viewing the DAG
 
