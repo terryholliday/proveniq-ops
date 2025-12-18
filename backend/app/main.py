@@ -17,7 +17,7 @@ from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.openapi.utils import get_openapi
 
-from app.api import audit, bishop, dag, inventory, mocks, receiving, stockout, vendors
+from app.api import audit, bishop, dag, inventory, mocks, pricewatch, receiving, stockout, vendors
 from app.core.config import get_settings
 
 settings = get_settings()
@@ -58,6 +58,10 @@ OPENAPI_TAGS = [
     {
         "name": "Smart Receiving",
         "description": "N16/N32: Scan-to-PO reconciliation with discrepancy detection.",
+    },
+    {
+        "name": "Vendor Price Watch",
+        "description": "N14/N34: Monitor vendor pricing and surface arbitrage opportunities. Never auto-switch without approval.",
     },
     {
         "name": "Vendor Bridge",
@@ -201,6 +205,7 @@ app.include_router(dag.router, prefix="/api/v1")
 app.include_router(audit.router, prefix="/api/v1")
 app.include_router(stockout.router, prefix="/api/v1")
 app.include_router(receiving.router, prefix="/api/v1")
+app.include_router(pricewatch.router, prefix="/api/v1")
 app.include_router(vendors.router, prefix="/api/v1")
 app.include_router(inventory.router, prefix="/api/v1")
 app.include_router(mocks.router, prefix="/api/v1")
