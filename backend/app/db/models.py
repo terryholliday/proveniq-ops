@@ -251,6 +251,143 @@ class OrderItem(Base):
     )
 
 
+class ConsumptionEvent(Base):
+    """Inventory consumption/receiving events for burn rate calculation."""
+    
+    __tablename__ = "consumption_events"
+    
+    id: Mapped[uuid.UUID] = mapped_column(
+        UUID(as_uuid=True), primary_key=True, default=uuid.uuid4
+    )
+    product_id: Mapped[uuid.UUID] = mapped_column(
+        UUID(as_uuid=True), ForeignKey("products.id", ondelete="CASCADE"), nullable=False
+    )
+    qty_delta: Mapped[int] = mapped_column(Integer, nullable=False)  # negative = consumption
+    event_type: Mapped[str] = mapped_column(
+        String(50), nullable=False, default="consumption"
+    )
+    location_id: Mapped[Optional[str]] = mapped_column(String(100))
+    recorded_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), server_default=func.now()
+    )
+    recorded_by: Mapped[str] = mapped_column(String(100), nullable=False, default="bishop")
+    
+    __table_args__ = (
+        CheckConstraint(
+            "event_type IN ('consumption', 'receiving', 'adjustment', 'transfer', 'spoilage')",
+            name="consumption_event_type_valid",
+        ),
+        Index("idx_consumption_product", "product_id"),
+        Index("idx_consumption_recorded", "recorded_at"),
+        Index("idx_consumption_type", "event_type"),
+    )
+
+
+class UsageStatistics(Base):
+    """Aggregated historical usage statistics per product."""
+    
+    __tablename__ = "usage_statistics"
+    
+    id: Mapped[uuid.UUID] = mapped_column(
+        UUID(as_uuid=True), primary_key=True, default=uuid.uuid4
+    )
+    product_id: Mapped[uuid.UUID] = mapped_column(
+        UUID(as_uuid=True), ForeignKey("products.id", ondelete="CASCADE"), nullable=False, unique=True
+    )
+    avg_daily_burn_7d: Mapped[Decimal] = mapped_column(Numeric(12, 4), nullable=False, default=0)
+    avg_daily_burn_30d: Mapped[Decimal] = mapped_column(Numeric(12, 4), nullable=False, default=0)
+    avg_daily_burn_90d: Mapped[Decimal] = mapped_column(Numeric(12, 4), nullable=False, default=0)
+    variance_coefficient: Mapped[Decimal] = mapped_column(Numeric(8, 4), nullable=False, default=0)
+    last_calculated: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), server_default=func.now()
+    )
+    
+    __table_args__ = (
+        Index("idx_usage_product", "product_id"),
+    )
+
+
+class VendorLeadTime(Base):
+    """Vendor-specific lead times for products."""
+    
+    __tablename__ = "vendor_lead_times"
+    
+    id: Mapped[uuid.UUID] = mapped_column(
+        UUID(as_uuid=True), primary_key=True, default=uuid.uuid4
+    )
+    product_id: Mapped[uuid.UUID] = mapped_column(
+        UUID(as_uuid=True), ForeignKey("products.id", ondelete="CASCADE"), nullable=False
+    )
+    vendor_id: Mapped[uuid.UUID] = mapped_column(
+        UUID(as_uuid=True), ForeignKey("vendors.id", ondelete="CASCADE"), nullable=False
+    )
+    avg_lead_time_hours: Mapped[int] = mapped_column(Integer, nullable=False, default=48)
+    reliability_score: Mapped[Decimal] = mapped_column(
+        Numeric(5, 4), nullable=False, default=1.0
+    )
+    updated_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), server_default=func.now(), onupdate=func.now()
+    )
+    
+    __table_args__ = (
+        UniqueConstraint("product_id", "vendor_id"),
+        CheckConstraint("avg_lead_time_hours >= 0", name="lead_time_non_negative"),
+        CheckConstraint(
+            "reliability_score >= 0 AND reliability_score <= 1",
+            name="reliability_score_range",
+        ),
+        Index("idx_lead_time_product", "product_id"),
+        Index("idx_lead_time_vendor", "vendor_id"),
+    )
+
+
+class StockoutAlert(Base):
+    """Persisted stockout alerts from Bishop prediction engine."""
+    
+    __tablename__ = "stockout_alerts"
+    
+    id: Mapped[uuid.UUID] = mapped_column(
+        UUID(as_uuid=True), primary_key=True, default=uuid.uuid4
+    )
+    product_id: Mapped[uuid.UUID] = mapped_column(
+        UUID(as_uuid=True), ForeignKey("products.id", ondelete="CASCADE"), nullable=False
+    )
+    alert_type: Mapped[str] = mapped_column(String(50), nullable=False)
+    severity: Mapped[str] = mapped_column(String(20), nullable=False)
+    projected_hours_to_stockout: Mapped[Decimal] = mapped_column(Numeric(10, 2), nullable=False)
+    confidence: Mapped[Decimal] = mapped_column(Numeric(5, 4), nullable=False)
+    recommended_vendor_id: Mapped[Optional[uuid.UUID]] = mapped_column(
+        UUID(as_uuid=True), ForeignKey("vendors.id")
+    )
+    recommended_qty: Mapped[Optional[int]] = mapped_column(Integer)
+    estimated_cost: Mapped[Optional[Decimal]] = mapped_column(Numeric(12, 4))
+    status: Mapped[str] = mapped_column(String(50), nullable=False, default="active")
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), server_default=func.now()
+    )
+    resolved_at: Mapped[Optional[datetime]] = mapped_column(DateTime(timezone=True))
+    resolved_by: Mapped[Optional[str]] = mapped_column(String(100))
+    
+    __table_args__ = (
+        CheckConstraint(
+            "alert_type IN ('PREDICTIVE_STOCKOUT', 'WARNING', 'CRITICAL')",
+            name="alert_type_valid",
+        ),
+        CheckConstraint(
+            "severity IN ('low', 'medium', 'high', 'critical')",
+            name="alert_severity_valid",
+        ),
+        CheckConstraint(
+            "status IN ('active', 'acknowledged', 'resolved', 'expired')",
+            name="alert_status_valid",
+        ),
+        Index("idx_stockout_product", "product_id"),
+        Index("idx_stockout_status", "status"),
+        Index("idx_stockout_severity", "severity"),
+        Index("idx_stockout_created", "created_at"),
+    )
+
+
 class BishopStateLog(Base):
     """FSM state transition audit trail."""
     
