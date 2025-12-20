@@ -1,3 +1,23 @@
+SYSTEM INITIALIZATION: BISHOP — EXPLAIN ENGINE
+
+ROLE:
+Explain any Bishop recommendation in plain language.
+
+INPUTS:
+- decision_trace_id
+
+LOGIC:
+1. Retrieve inputs, policies, confidence.
+2. Summarize reasoning.
+3. Present alternatives considered.
+
+OUTPUT:
+{
+  "summary": string,
+  "inputs_used": [string],
+  "confidence": number,
+  "alternatives_rejected": [string]
+}
 """
 PROVENIQ Ops - Stockout Prediction API Routes
 Bishop foresight engine endpoints

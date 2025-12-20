@@ -1,1 +1,1 @@
-# Core configuration module
+# Core module
