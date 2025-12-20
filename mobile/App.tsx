@@ -20,7 +20,11 @@ import {
   TutorialScreen,
   ReadyScreen,
   FAQScreen,
+  InventoryListScreen,
+  ProductDetailScreen,
+  OrderDraftScreen,
 } from './src/screens';
+import type { BelowParItem } from './src/services';
 import type { 
   BusinessInfoData, 
   LocationData, 
@@ -45,6 +49,8 @@ type Screen =
   | 'home'
   | 'scan' 
   | 'inventory'
+  | 'product_detail'
+  | 'order_draft'
   | 'orders'
   | 'alerts'
   | 'settings'
@@ -58,9 +64,16 @@ interface OnboardingData {
   teamInvites?: TeamInvite[];
 }
 
+// Navigation context for screens that need parameters
+interface NavigationContext {
+  selectedProductId?: string;
+  orderItems?: BelowParItem[];
+}
+
 export default function App() {
   const [currentScreen, setCurrentScreen] = useState<Screen>('loading');
   const [onboardingData, setOnboardingData] = useState<OnboardingData>({});
+  const [navContext, setNavContext] = useState<NavigationContext>({});
   
   const { 
     user, 
@@ -299,8 +312,60 @@ export default function App() {
     );
   }
 
+  // Inventory screen
+  if (currentScreen === 'inventory') {
+    return (
+      <>
+        <StatusBar style="light" />
+        <InventoryListScreen
+          onBack={() => setCurrentScreen('home')}
+          onScanItem={() => setCurrentScreen('scan')}
+          onViewProduct={(productId) => {
+            setNavContext({ selectedProductId: productId });
+            setCurrentScreen('product_detail');
+          }}
+          onCreateOrder={(items) => {
+            setNavContext({ orderItems: items });
+            setCurrentScreen('order_draft');
+          }}
+        />
+      </>
+    );
+  }
+
+  // Product detail screen
+  if (currentScreen === 'product_detail' && navContext.selectedProductId) {
+    return (
+      <>
+        <StatusBar style="light" />
+        <ProductDetailScreen
+          productId={navContext.selectedProductId}
+          onBack={() => setCurrentScreen('inventory')}
+          onScan={() => setCurrentScreen('scan')}
+        />
+      </>
+    );
+  }
+
+  // Order draft screen
+  if (currentScreen === 'order_draft' && navContext.orderItems) {
+    return (
+      <>
+        <StatusBar style="light" />
+        <OrderDraftScreen
+          items={navContext.orderItems}
+          onBack={() => setCurrentScreen('inventory')}
+          onOrderComplete={() => {
+            setNavContext({});
+            setCurrentScreen('home');
+          }}
+        />
+      </>
+    );
+  }
+
   // Placeholder screens (to be built)
-  if (currentScreen === 'inventory' || currentScreen === 'orders' || currentScreen === 'alerts') {
+  if (currentScreen === 'orders' || currentScreen === 'alerts') {
     return (
       <>
         <StatusBar style="light" />

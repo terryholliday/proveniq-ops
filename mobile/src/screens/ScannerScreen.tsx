@@ -92,8 +92,32 @@ export function ScannerScreen({ onOpenSettings }: ScannerScreenProps) {
     beginScan('Warehouse A');
   };
 
-  const handleCompleteScan = () => {
+  const handleCompleteScan = async () => {
+    // Save snapshots to backend for each scanned product
+    for (const product of products) {
+      // Skip unknown products (they don't have real IDs)
+      if (product.id.startsWith('unknown-')) continue;
+      
+      const { error } = await inventoryApi.createSnapshot({
+        product_id: product.id,
+        quantity: product.quantity,
+        confidence_score: product.confidence,
+        scanned_by: 'bishop',
+        scan_method: 'barcode',
+        location_tag: context.location,
+      });
+      
+      if (error) {
+        console.error(`Failed to save snapshot for ${product.name}:`, error);
+      }
+    }
+    
     completeScan();
+    Alert.alert(
+      'Scan Complete',
+      `${products.length} item(s) recorded successfully.`,
+      [{ text: 'OK' }]
+    );
   };
 
   const handleReset = () => {

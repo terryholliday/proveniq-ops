@@ -37,3 +37,6 @@ export function setRuntimeApiUrl(url: string) {
 export function getApiUrl(): string {
   return runtimeApiUrl || config.api.baseUrl;
 }
+
+// Convenience export for API URL
+export const API_URL = getApiUrl();
