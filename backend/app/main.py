@@ -9,7 +9,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from app.core.config import settings
 from app.routers import auth
 from app.modules.bishop import bishop_router
-from app.api import inventory, vendors, decisions
+from app.api import inventory, vendors, decisions, predictions
 
 app = FastAPI(
     title=settings.APP_NAME,
@@ -34,6 +34,7 @@ app.include_router(bishop_router)  # BISHOP module (restaurant/retail inventory)
 app.include_router(inventory.router)  # Inventory API
 app.include_router(vendors.router)  # Vendors API
 app.include_router(decisions.router)  # Decision DAG API
+app.include_router(predictions.router)  # ML Predictions API
 
 
 @app.get("/")
