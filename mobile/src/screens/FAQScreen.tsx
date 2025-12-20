@@ -128,6 +128,32 @@ const FAQ_DATA: FAQItem[] = [
     answer: 'When scanning reveals a discrepancy, classify it as:\n\n• Theft\n• Spoilage\n• Damage\n• Admin Error\n• Vendor Error\n• Unknown',
   },
 
+  // Predictions & Alerts
+  {
+    id: '18',
+    category: 'Predictions',
+    question: 'What is burn rate?',
+    answer: 'Burn rate is how fast you use inventory. The system calculates it from scan history:\n\n• 7-day average\n• 30-day average\n• 90-day average\n\nThis predicts when you\'ll run out.',
+  },
+  {
+    id: '19',
+    category: 'Predictions',
+    question: 'How do stockout predictions work?',
+    answer: 'The system predicts when items will run out based on:\n\n• Current quantity\n• Your burn rate\n• Pending orders\n\nRisk levels: Low (72+ hours), Medium (24-72h), High (12-24h), Critical (<12h).',
+  },
+  {
+    id: '20',
+    category: 'Predictions',
+    question: 'What do the action recommendations mean?',
+    answer: '• None - Stock is healthy\n• Monitor - Watch this item\n• Order Soon - Place order within 24h\n• Order Now - Order immediately\n• Emergency - Stockout imminent, expedite order',
+  },
+  {
+    id: '21',
+    category: 'Predictions',
+    question: 'How accurate are predictions?',
+    answer: 'Accuracy depends on data:\n\n• New items: 50-60% confidence\n• 7+ days of scans: 70-80%\n• 30+ days: 85-90%\n\nScan regularly for better predictions.',
+  },
+
   // Troubleshooting
   {
     id: '16',

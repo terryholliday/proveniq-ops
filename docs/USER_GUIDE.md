@@ -1,6 +1,6 @@
 # PROVENIQ Ops — User Guide
 
-**Version:** 1.0.0  
+**Version:** 2.0.0  
 **Last Updated:** December 2024
 
 ---
@@ -13,13 +13,14 @@
 4. [Scanning Inventory](#4-scanning-inventory)
 5. [Managing Inventory](#5-managing-inventory)
 6. [Par Levels & Reordering](#6-par-levels--reordering)
-7. [Vendor Management](#7-vendor-management)
-8. [Team Management](#8-team-management)
-9. [Shrinkage Detection](#9-shrinkage-detection)
-10. [Reports & Analytics](#10-reports--analytics)
-11. [Settings](#11-settings)
-12. [Troubleshooting](#12-troubleshooting)
-13. [Support](#13-support)
+7. [Predictions & Alerts](#7-predictions--alerts)
+8. [Vendor Management](#8-vendor-management)
+9. [Team Management](#9-team-management)
+10. [Shrinkage Detection](#10-shrinkage-detection)
+11. [Reports & Analytics](#11-reports--analytics)
+12. [Settings](#12-settings)
+13. [Troubleshooting](#13-troubleshooting)
+14. [Support](#14-support)
 
 ---
 
@@ -263,7 +264,77 @@ When enabled, the system automatically creates orders when items hit reorder poi
 
 ---
 
-## 7. Vendor Management
+## 7. Predictions & Alerts
+
+PROVENIQ Ops uses your scan history to predict stockouts before they happen.
+
+### Burn Rate
+
+Burn rate measures how fast you consume inventory. The system calculates:
+
+| Window | Weight | Description |
+|--------|--------|-------------|
+| **7-day** | 50% | Recent consumption pattern |
+| **30-day** | 30% | Medium-term trend |
+| **90-day** | 20% | Long-term baseline |
+
+The weighted average gives more importance to recent data while smoothing out anomalies.
+
+### Stockout Predictions
+
+For each product, the system predicts:
+
+- **Hours to Stockout** — When you'll run out completely
+- **Hours to Par** — When you'll hit your minimum level
+- **Risk Level** — How urgent the situation is
+
+### Risk Levels
+
+| Level | Time to Stockout | Action |
+|-------|------------------|--------|
+| **Low** | 72+ hours | Monitor normally |
+| **Medium** | 24-72 hours | Consider ordering |
+| **High** | 12-24 hours | Order now |
+| **Critical** | <12 hours | Emergency order |
+
+### Viewing Predictions
+
+1. Go to **Inventory**
+2. Tap an item to see its prediction
+3. View burn rate, stockout date, and recommendation
+
+### Alerts
+
+When items are at risk, you'll receive alerts:
+
+| Severity | Meaning |
+|----------|---------|
+| **Warning** | Stockout in 24-72 hours |
+| **Critical** | Stockout in 12-24 hours |
+| **Emergency** | Stockout in <12 hours |
+
+### Prediction Dashboard
+
+Go to **Home > Alerts** to see:
+- Products at risk (sorted by severity)
+- Risk breakdown (how many critical, high, medium, low)
+- Recommended order quantities
+
+### Improving Accuracy
+
+Predictions get better with more data:
+
+| Data Points | Confidence |
+|-------------|------------|
+| <7 days | 50-60% |
+| 7-30 days | 70-80% |
+| 30+ days | 85-90% |
+
+**Tip:** Scan inventory regularly (daily is ideal) for the most accurate predictions.
+
+---
+
+## 8. Vendor Management
 
 ### Supported Vendors
 
@@ -307,7 +378,7 @@ For each item, you can set a preferred vendor:
 
 ---
 
-## 8. Team Management
+## 9. Team Management
 
 ### User Roles
 
@@ -348,7 +419,7 @@ You can restrict team members to specific locations:
 
 ---
 
-## 9. Shrinkage Detection
+## 10. Shrinkage Detection
 
 ### What is Shrinkage?
 
@@ -404,7 +475,7 @@ When a scan reveals a discrepancy:
 
 ---
 
-## 10. Reports & Analytics
+## 11. Reports & Analytics
 
 ### Available Reports
 
@@ -443,7 +514,7 @@ Set up automatic reports:
 
 ---
 
-## 11. Settings
+## 12. Settings
 
 ### Account Settings
 
@@ -483,7 +554,7 @@ Set up automatic reports:
 
 ---
 
-## 12. Troubleshooting
+## 13. Troubleshooting
 
 ### Camera Issues
 
@@ -564,7 +635,7 @@ Set up automatic reports:
 
 ---
 
-## 13. Support
+## 14. Support
 
 ### Contact Us
 
