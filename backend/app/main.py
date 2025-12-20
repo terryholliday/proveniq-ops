@@ -1,19 +1,19 @@
 """PROVENIQ OPS - FastAPI Application.
 
-Spec v1.1: Landlord Vector - Zero-CAC tenant acquisition
+Restaurant & Retail Inventory Operations (Bishop FSM)
 """
 
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
 from app.core.config import settings
-from app.routers import landlord, tenant, auth
+from app.routers import auth
 from app.modules.bishop import bishop_router
 
 app = FastAPI(
     title=settings.APP_NAME,
-    description="PROVENIQ OPS - Landlord Vector & Tenant Management API (Spec v1.1)",
-    version="1.1.0",
+    description="PROVENIQ OPS - Restaurant & Retail Inventory Operations (Bishop FSM)",
+    version="2.0.0",
     docs_url="/docs",
     redoc_url="/redoc",
 )
@@ -28,9 +28,7 @@ app.add_middleware(
 )
 
 # Include routers
-app.include_router(auth.router)  # Auth first (magic link exchange)
-app.include_router(landlord.router)
-app.include_router(tenant.router)
+app.include_router(auth.router)
 app.include_router(bishop_router)  # BISHOP module (restaurant/retail inventory)
 
 
@@ -39,8 +37,8 @@ async def root():
     """Health check endpoint."""
     return {
         "service": "PROVENIQ OPS",
-        "version": "1.1.0",
-        "spec": "v1.1 Landlord Vector",
+        "version": "2.0.0",
+        "spec": "Restaurant & Retail Inventory",
         "status": "operational",
     }
 

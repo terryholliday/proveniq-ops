@@ -23,7 +23,11 @@ import {
 } from '../components';
 import { inventoryApi } from '../services';
 
-export function ScannerScreen() {
+interface ScannerScreenProps {
+  onOpenSettings?: () => void;
+}
+
+export function ScannerScreen({ onOpenSettings }: ScannerScreenProps) {
   const [permission, requestPermission] = useCameraPermissions();
   const [facing, setFacing] = useState<CameraType>('back');
   const cameraRef = useRef<CameraView>(null);
@@ -138,6 +142,11 @@ export function ScannerScreen() {
             <Text style={styles.logo}>PROVENIQ</Text>
             <Text style={styles.subtitle}>SYNTHETIC EYE</Text>
           </View>
+          {onOpenSettings && (
+            <TouchableOpacity style={styles.settingsButton} onPress={onOpenSettings}>
+              <Text style={styles.settingsIcon}>⚙️</Text>
+            </TouchableOpacity>
+          )}
         </SafeAreaView>
         
         {/* Bottom Controls */}
@@ -304,5 +313,14 @@ const styles = StyleSheet.create({
     color: colors.textMuted,
     textAlign: 'center',
     marginTop: spacing.sm,
+  },
+  settingsButton: {
+    position: 'absolute',
+    right: spacing.md,
+    top: spacing.md,
+    padding: spacing.sm,
+  },
+  settingsIcon: {
+    fontSize: 24,
   },
 });
