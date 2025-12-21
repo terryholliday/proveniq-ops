@@ -16,12 +16,14 @@ Ops MUST Publish:
     - ops.excess.flagged
 """
 
+import os
 import uuid
 from datetime import datetime
 from decimal import Decimal
 from enum import Enum
 from typing import Any, Optional
 
+import httpx
 from pydantic import BaseModel, Field
 
 
@@ -131,6 +133,8 @@ class EventPublisher:
     def __init__(self) -> None:
         self._event_log: list[EventPayload] = []
         self._subscribers: dict[str, list[callable]] = {}
+        self.claimsiq_url = os.getenv("CLAIMSIQ_API_URL")
+        self.claimsiq_token = os.getenv("CLAIMSIQ_SERVICE_TOKEN")
     
     async def publish(
         self,
@@ -288,10 +292,14 @@ class EventPublisher:
             variance=variance,
             variance_value_micros=variance_value,
         )
-        return await self.publish(
+        event = await self.publish(
             OpsEventType.SHRINKAGE_DETECTED,
             payload.model_dump(mode="json"),
         )
+
+        # Forward to ClaimsIQ ingestion endpoint (fire-and-forget)
+        await self._forward_shrinkage_to_claimsiq(event)
+        return event
     
     async def publish_order_queued(
         self,
@@ -362,6 +370,28 @@ class EventPublisher:
     def clear_log(self) -> None:
         """Clear event log."""
         self._event_log.clear()
+
+    # =========================================================================
+    # FORWARDERS
+    # =========================================================================
+
+    async def _forward_shrinkage_to_claimsiq(self, event: EventPayload) -> None:
+        """Forward shrinkage event to ClaimsIQ ingest endpoint if configured."""
+        if not self.claimsiq_url:
+            return
+        try:
+            url = self.claimsiq_url.rstrip("/") + "/v1/claimsiq/claims/shrinkage"
+            headers = {
+                "Content-Type": "application/json",
+                "X-Service-Name": "proveniq-ops",
+            }
+            if self.claimsiq_token:
+                headers["Authorization"] = f"Bearer {self.claimsiq_token}"
+            async with httpx.AsyncClient(timeout=5) as client:
+                await client.post(url, json=event.model_dump(mode="json"), headers=headers)
+        except Exception:
+            # swallow failures to avoid blocking
+            pass
 
 
 # Singleton instance

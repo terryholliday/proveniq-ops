@@ -1,7 +1,7 @@
 """Inventory & Orders Tables
 
 Revision ID: 002_inventory
-Revises: 001_bishop
+Revises: None
 Create Date: 2024-12-20
 
 Implements:
@@ -14,7 +14,7 @@ Implements:
 - Usage statistics
 - Vendor lead times
 - Stockout alerts
-- Bishop state log
+- FSM state log
 """
 from typing import Sequence, Union
 
@@ -23,7 +23,7 @@ import sqlalchemy as sa
 from sqlalchemy.dialects import postgresql
 
 revision: str = '002_inventory'
-down_revision: Union[str, None] = '001_bishop'
+down_revision: Union[str, None] = None
 branch_labels: Union[str, Sequence[str], None] = None
 depends_on: Union[str, Sequence[str], None] = None
 
@@ -92,7 +92,7 @@ def upgrade() -> None:
         sa.Column('quantity', sa.Integer(), nullable=False),
         sa.Column('confidence_score', sa.Numeric(5, 4), nullable=True),
         sa.Column('scanned_at', sa.DateTime(timezone=True), server_default=sa.func.now()),
-        sa.Column('scanned_by', sa.String(100), nullable=False, default='bishop'),
+        sa.Column('scanned_by', sa.String(100), nullable=False, default='system'),
         sa.Column('scan_method', sa.String(50), nullable=False, default='manual'),
         sa.Column('location_tag', sa.String(255), nullable=True),
         sa.CheckConstraint('quantity >= 0', name='snapshots_quantity_non_negative'),
@@ -149,7 +149,7 @@ def upgrade() -> None:
         sa.Column('event_type', sa.String(50), nullable=False, default='consumption'),
         sa.Column('location_id', sa.String(100), nullable=True),
         sa.Column('recorded_at', sa.DateTime(timezone=True), server_default=sa.func.now()),
-        sa.Column('recorded_by', sa.String(100), nullable=False, default='bishop'),
+        sa.Column('recorded_by', sa.String(100), nullable=False, default='system'),
         sa.CheckConstraint("event_type IN ('consumption', 'receiving', 'adjustment', 'transfer', 'spoilage')",
                           name='consumption_event_type_valid'),
     )
@@ -219,9 +219,9 @@ def upgrade() -> None:
     op.create_index('idx_stockout_severity', 'stockout_alerts', ['severity'])
     op.create_index('idx_stockout_created', 'stockout_alerts', ['created_at'])
 
-    # Bishop State Log table
+    # FSM State Log table
     op.create_table(
-        'bishop_state_log',
+        'fsm_state_log',
         sa.Column('id', postgresql.UUID(as_uuid=True), primary_key=True),
         sa.Column('previous_state', sa.String(50), nullable=True),
         sa.Column('current_state', sa.String(50), nullable=False),
@@ -230,14 +230,14 @@ def upgrade() -> None:
         sa.Column('output_message', sa.Text(), nullable=True),
         sa.Column('logged_at', sa.DateTime(timezone=True), server_default=sa.func.now()),
         sa.CheckConstraint("current_state IN ('IDLE', 'SCANNING', 'ANALYZING_RISK', 'CHECKING_FUNDS', 'ORDER_QUEUED')",
-                          name='bishop_state_valid'),
+                          name='fsm_state_valid'),
     )
-    op.create_index('idx_bishop_log_state', 'bishop_state_log', ['current_state'])
-    op.create_index('idx_bishop_log_time', 'bishop_state_log', ['logged_at'])
+    op.create_index('idx_fsm_log_state', 'fsm_state_log', ['current_state'])
+    op.create_index('idx_fsm_log_time', 'fsm_state_log', ['logged_at'])
 
 
 def downgrade() -> None:
-    op.drop_table('bishop_state_log')
+    op.drop_table('fsm_state_log')
     op.drop_table('stockout_alerts')
     op.drop_table('vendor_lead_times')
     op.drop_table('usage_statistics')

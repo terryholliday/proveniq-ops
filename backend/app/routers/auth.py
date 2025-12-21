@@ -21,6 +21,7 @@ from app.core.firebase_auth import (
     generate_magic_token,
     hash_magic_token,
     get_magic_token_expiry,
+    require_role,
 )
 from app.models.user import User
 from app.models.lease import Lease
@@ -81,7 +82,7 @@ async def exchange_magic_token(
     # Find the lease by magic token
     result = await db.execute(
         select(Lease)
-        .where(Lease.magic_token == request.magic_token)
+        .where(Lease.magic_token == hash_magic_token(request.magic_token))
     )
     lease = result.scalar_one_or_none()
     
@@ -127,9 +128,9 @@ async def exchange_magic_token(
         claims=claims,
     )
     
-    # Mark magic token as used (but keep it for audit)
-    # In production, you might want to invalidate it after first use
-    # lease.magic_token = None
+    # Mark magic token as used (one-time)
+    lease.magic_token = None
+    lease.magic_token_expires_at = None
     
     # Update lease status if this is the first login
     if lease.status == "pending":
@@ -153,7 +154,7 @@ async def exchange_magic_token(
 async def generate_tenant_invite(
     request: InviteRequest,
     db: AsyncSession = Depends(get_db),
-    # In production, add: current_user: User = Depends(require_role("LANDLORD_ADMIN"))
+    current_user: User = Depends(require_role("LANDLORD_ADMIN", "LANDLORD_STAFF")),
 ):
     """
     Generate a magic link invite for a tenant.
@@ -176,8 +177,8 @@ async def generate_tenant_invite(
     magic_token = generate_magic_token()
     expires_at = get_magic_token_expiry(hours=72)
     
-    # Store on lease
-    lease.magic_token = magic_token
+    # Store hashed token on lease
+    lease.magic_token = hash_magic_token(magic_token)
     lease.magic_token_expires_at = expires_at
     
     # Update status to pending (invite sent)
@@ -204,6 +205,7 @@ async def generate_tenant_invite(
 async def refresh_tenant_invite(
     request: InviteRequest,
     db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(require_role("LANDLORD_ADMIN", "LANDLORD_STAFF")),
 ):
     """
     Refresh an expired magic link for a tenant.
@@ -225,7 +227,7 @@ async def refresh_tenant_invite(
     magic_token = generate_magic_token()
     expires_at = get_magic_token_expiry(hours=72)
     
-    lease.magic_token = magic_token
+    lease.magic_token = hash_magic_token(magic_token)
     lease.magic_token_expires_at = expires_at
     
     await db.commit()

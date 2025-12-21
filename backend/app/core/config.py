@@ -17,11 +17,12 @@ class Settings(BaseSettings):
     APP_NAME: str = "PROVENIQ OPS"
     DEBUG: bool = True
     
-    # OpenAI (for BISHOP Vision)
+    # OpenAI (for Vision API)
     OPENAI_API_KEY: str | None = None
     
     class Config:
         env_file = ".env"
+        extra = "ignore"
 
 
 @lru_cache()

@@ -1,4 +1,4 @@
-version: '3.8'
+name: proveniq-ops
 
 services:
   postgres:
@@ -11,7 +11,7 @@ services:
     ports:
       - "5432:5432"
     volumes:
-      - postgres_data:/var/lib/postgresql/data
+      - proveniq_ops_postgres_data:/var/lib/postgresql/data
     healthcheck:
       test: ["CMD-SHELL", "pg_isready -U proveniq -d proveniq_ops"]
       interval: 5s
@@ -19,4 +19,4 @@ services:
       retries: 5
 
 volumes:
-  postgres_data:
+  proveniq_ops_postgres_data:
