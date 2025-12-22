@@ -8,7 +8,7 @@ from app.core.database import Base
 
 
 class User(Base):
-    """User model - can be Landlord, Tenant, or both based on relationships."""
+    """User model for PROVENIQ Ops - Restaurant/Retail staff."""
     
     __tablename__ = "users"
     
@@ -18,17 +18,11 @@ class User(Base):
         default=uuid.uuid4,
     )
     email: Mapped[str] = mapped_column(String(255), unique=True, index=True, nullable=False)
-    hashed_password: Mapped[str] = mapped_column(String(255), nullable=True)
+    firebase_uid: Mapped[str] = mapped_column(String(128), unique=True, index=True, nullable=True)
     full_name: Mapped[str] = mapped_column(String(255), nullable=True)
     phone: Mapped[str] = mapped_column(String(50), nullable=True)
+    role: Mapped[str] = mapped_column(String(50), nullable=True)  # OWNER, MANAGER, STAFF
+    organization_id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), nullable=True)
     is_active: Mapped[bool] = mapped_column(Boolean, default=True)
-    is_verified: Mapped[bool] = mapped_column(Boolean, default=False)
     created_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow)
     updated_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
-    
-    # Relationships
-    properties: Mapped[list["Property"]] = relationship("Property", back_populates="landlord")
-    leases: Mapped[list["Lease"]] = relationship("Lease", back_populates="tenant")
-    maintenance_requests: Mapped[list["MaintenanceRequest"]] = relationship("MaintenanceRequest", back_populates="tenant")
-    inventory_items: Mapped[list["InventoryItem"]] = relationship("InventoryItem", back_populates="owner")
-    bishop_locations: Mapped[list["BishopLocation"]] = relationship("BishopLocation", back_populates="owner")

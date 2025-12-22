@@ -28,6 +28,7 @@ from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.database import get_db
+from app.core.config import settings as app_settings
 from app.models.user import User
 
 
@@ -38,19 +39,29 @@ def init_firebase():
         return False
     
     try:
-        firebase_admin.get_app()
+        existing_app = firebase_admin.get_app()
+        desired_project_id = app_settings.FIREBASE_PROJECT_ID
+        existing_project_id = getattr(existing_app, "project_id", None)
+        if desired_project_id and existing_project_id and existing_project_id != desired_project_id:
+            firebase_admin.delete_app(existing_app)
+            raise ValueError("Firebase app initialized for different project")
         return True
     except ValueError:
         # Not initialized yet
-        cred_path = os.environ.get("GOOGLE_APPLICATION_CREDENTIALS")
+        desired_project_id = app_settings.FIREBASE_PROJECT_ID
+        cred_path = app_settings.GOOGLE_APPLICATION_CREDENTIALS or os.environ.get("GOOGLE_APPLICATION_CREDENTIALS")
+        if cred_path:
+            cred_path = cred_path.strip('"')
         if cred_path and os.path.exists(cred_path):
             cred = credentials.Certificate(cred_path)
-            firebase_admin.initialize_app(cred)
+            options = {"projectId": desired_project_id} if desired_project_id else None
+            firebase_admin.initialize_app(cred, options=options)
             return True
         else:
             # Try default credentials (for Cloud Run/Cloud Functions)
             try:
-                firebase_admin.initialize_app()
+                options = {"projectId": desired_project_id} if desired_project_id else None
+                firebase_admin.initialize_app(options=options)
                 return True
             except Exception:
                 return False
@@ -103,7 +114,11 @@ async def verify_firebase_token(
             detail="Firebase authentication not available",
         )
     
-    init_firebase()
+    if not init_firebase():
+        raise HTTPException(
+            status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+            detail="Firebase authentication not configured",
+        )
     
     try:
         # Verify the Firebase ID token
@@ -115,15 +130,15 @@ async def verify_firebase_token(
             email_verified=decoded_token.get("email_verified", False),
             claims=decoded_token,
         )
-    except firebase_auth.InvalidIdTokenError:
+    except firebase_auth.InvalidIdTokenError as e:
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
-            detail="Invalid authentication token",
+            detail=f"Invalid authentication token: {str(e)}",
         )
-    except firebase_auth.ExpiredIdTokenError:
+    except firebase_auth.ExpiredIdTokenError as e:
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
-            detail="Authentication token expired",
+            detail=f"Authentication token expired: {str(e)}",
         )
     except Exception as e:
         raise HTTPException(

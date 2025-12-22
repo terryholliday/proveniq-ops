@@ -16,6 +16,10 @@ class Settings(BaseSettings):
     # App
     APP_NAME: str = "PROVENIQ OPS"
     DEBUG: bool = True
+
+    FIREBASE_PROJECT_ID: str | None = None
+    GOOGLE_APPLICATION_CREDENTIALS: str | None = None
+    ADMIN_BOOTSTRAP_KEY: str | None = None
     
     # OpenAI (for Vision API)
     OPENAI_API_KEY: str | None = None

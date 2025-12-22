@@ -9,7 +9,7 @@ Bishop decisions flow through this DAG to ensure:
 4. Reproducible outcomes
 """
 
-from .dag import DecisionDAG, DecisionNode, DecisionGate
+from .dag import DecisionDAG, DecisionNode, DecisionGate, create_reorder_dag, create_disposal_dag
 from .executor import DecisionExecutor
 from .policies import PolicyEngine, PolicyResult
 from .trace import DecisionTrace, TraceStore
@@ -18,6 +18,8 @@ __all__ = [
     "DecisionDAG",
     "DecisionNode",
     "DecisionGate",
+    "create_reorder_dag",
+    "create_disposal_dag",
     "DecisionExecutor",
     "PolicyEngine",
     "PolicyResult",

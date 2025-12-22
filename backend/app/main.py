@@ -7,7 +7,7 @@ from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
 from app.core.config import settings
-from app.routers import auth
+from app.routers import auth, admin
 from app.modules.bishop import bishop_router
 from app.api import inventory, vendors, decisions, predictions
 
@@ -30,6 +30,8 @@ app.add_middleware(
 
 # Include routers
 app.include_router(auth.router)
+if settings.DEBUG:
+    app.include_router(admin.router)
 app.include_router(bishop_router)  # BISHOP module (restaurant/retail inventory)
 app.include_router(inventory.router)  # Inventory API
 app.include_router(vendors.router)  # Vendors API

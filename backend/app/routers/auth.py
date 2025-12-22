@@ -1,9 +1,7 @@
-"""Authentication router - Magic Link exchange and Firebase Custom Tokens.
+"""Authentication router for PROVENIQ Ops.
 
-Per spec v1.1:
-- The API never mints JWTs
-- It verifies Magic Links/Credentials and issues Firebase Custom Tokens
-- The Client SDK exchanges these for JWTs
+Restaurant/Retail staff authentication via Firebase.
+The API verifies Firebase JWTs - it never mints them.
 """
 
 from datetime import datetime
@@ -16,15 +14,8 @@ from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.database import get_db
-from app.core.firebase_auth import (
-    create_firebase_custom_token,
-    generate_magic_token,
-    hash_magic_token,
-    get_magic_token_expiry,
-    require_role,
-)
+from app.core.firebase_auth import get_current_user_from_firebase as get_current_user, require_role
 from app.models.user import User
-from app.models.lease import Lease
 
 router = APIRouter(prefix="/auth", tags=["auth"])
 
@@ -33,209 +24,84 @@ router = APIRouter(prefix="/auth", tags=["auth"])
 # SCHEMAS
 # ============================================================================
 
-class MagicTokenExchangeRequest(BaseModel):
-    """Request to exchange a magic token for a Firebase Custom Token."""
-    magic_token: str
+class UserProfile(BaseModel):
+    """User profile response."""
+    id: UUID
+    email: str
+    full_name: Optional[str] = None
+    role: Optional[str] = None
+    organization_id: Optional[UUID] = None
+    is_active: bool
 
 
-class MagicTokenExchangeResponse(BaseModel):
-    """Response containing Firebase Custom Token."""
-    firebase_custom_token: str
-    lease_id: UUID
-    tenant_id: UUID
-    tenant_email: str
-
-
-class InviteRequest(BaseModel):
-    """Request to generate and send a tenant invite."""
-    lease_id: UUID
-
-
-class InviteResponse(BaseModel):
-    """Response containing the magic link."""
-    magic_link: str
-    expires_at: datetime
+class UpdateProfileRequest(BaseModel):
+    """Request to update user profile."""
+    full_name: Optional[str] = None
+    phone: Optional[str] = None
 
 
 # ============================================================================
 # ENDPOINTS
 # ============================================================================
 
-@router.post("/exchange-token", response_model=MagicTokenExchangeResponse)
-async def exchange_magic_token(
-    request: MagicTokenExchangeRequest,
-    db: AsyncSession = Depends(get_db),
+@router.get("/me", response_model=UserProfile)
+async def get_my_profile(
+    current_user: User = Depends(get_current_user),
 ):
     """
-    Exchange a magic link token for a Firebase Custom Token.
+    Get current user's profile.
     
-    Flow:
-    1. Verify magic token is valid and not expired
-    2. Get the associated lease and tenant
-    3. Create Firebase Custom Token with claims
-    4. Mark token as used
-    5. Update lease status to PENDING -> ACTIVE if first login
-    
-    The client then uses the Firebase Custom Token to sign in with Firebase,
-    which returns a JWT for subsequent API calls.
+    Requires valid Firebase JWT in Authorization header.
     """
-    # Find the lease by magic token
-    result = await db.execute(
-        select(Lease)
-        .where(Lease.magic_token == hash_magic_token(request.magic_token))
+    return UserProfile(
+        id=current_user.id,
+        email=current_user.email,
+        full_name=current_user.full_name,
+        role=current_user.role,
+        organization_id=current_user.organization_id,
+        is_active=current_user.is_active,
     )
-    lease = result.scalar_one_or_none()
+
+
+@router.patch("/me", response_model=UserProfile)
+async def update_my_profile(
+    request: UpdateProfileRequest,
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    """
+    Update current user's profile.
+    """
+    if request.full_name is not None:
+        current_user.full_name = request.full_name
+    if request.phone is not None:
+        current_user.phone = request.phone
     
-    if not lease:
-        raise HTTPException(
-            status_code=status.HTTP_401_UNAUTHORIZED,
-            detail="Invalid or expired magic link",
-        )
+    current_user.updated_at = datetime.utcnow()
+    await db.commit()
+    await db.refresh(current_user)
     
-    # Check expiry
-    if lease.magic_token_expires_at and lease.magic_token_expires_at < datetime.utcnow():
-        raise HTTPException(
-            status_code=status.HTTP_401_UNAUTHORIZED,
-            detail="Magic link has expired. Request a new invite from your landlord.",
-        )
-    
-    # Get the tenant
-    tenant_result = await db.execute(
-        select(User).where(User.id == lease.tenant_id)
+    return UserProfile(
+        id=current_user.id,
+        email=current_user.email,
+        full_name=current_user.full_name,
+        role=current_user.role,
+        organization_id=current_user.organization_id,
+        is_active=current_user.is_active,
     )
-    tenant = tenant_result.scalar_one_or_none()
+
+
+@router.get("/verify")
+async def verify_token(
+    current_user: User = Depends(get_current_user),
+):
+    """
+    Verify that the current token is valid.
     
-    if not tenant:
-        raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND,
-            detail="Tenant account not found",
-        )
-    
-    # Ensure tenant has a Firebase UID (create if needed)
-    if not tenant.firebase_uid:
-        # Generate a Firebase UID based on our user ID
-        tenant.firebase_uid = f"tenant_{tenant.id}"
-    
-    # Create Firebase Custom Token with claims
-    claims = {
-        "role": "TENANT",
-        "lease_id": str(lease.id),
-        "tenant_id": str(tenant.id),
+    Returns minimal user info for token validation.
+    """
+    return {
+        "valid": True,
+        "user_id": str(current_user.id),
+        "role": current_user.role,
     }
-    
-    firebase_custom_token = create_firebase_custom_token(
-        uid=tenant.firebase_uid,
-        claims=claims,
-    )
-    
-    # Mark magic token as used (one-time)
-    lease.magic_token = None
-    lease.magic_token_expires_at = None
-    
-    # Update lease status if this is the first login
-    if lease.status == "pending":
-        lease.status = "active"
-    
-    # Update tenant role if not set
-    if not tenant.role:
-        tenant.role = "TENANT"
-    
-    await db.commit()
-    
-    return MagicTokenExchangeResponse(
-        firebase_custom_token=firebase_custom_token,
-        lease_id=lease.id,
-        tenant_id=tenant.id,
-        tenant_email=tenant.email,
-    )
-
-
-@router.post("/generate-invite", response_model=InviteResponse)
-async def generate_tenant_invite(
-    request: InviteRequest,
-    db: AsyncSession = Depends(get_db),
-    current_user: User = Depends(require_role("LANDLORD_ADMIN", "LANDLORD_STAFF")),
-):
-    """
-    Generate a magic link invite for a tenant.
-    
-    Called by landlord to invite a tenant to complete their move-in inspection.
-    """
-    # Get the lease
-    result = await db.execute(
-        select(Lease).where(Lease.id == request.lease_id)
-    )
-    lease = result.scalar_one_or_none()
-    
-    if not lease:
-        raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND,
-            detail="Lease not found",
-        )
-    
-    # Generate magic token
-    magic_token = generate_magic_token()
-    expires_at = get_magic_token_expiry(hours=72)
-    
-    # Store hashed token on lease
-    lease.magic_token = hash_magic_token(magic_token)
-    lease.magic_token_expires_at = expires_at
-    
-    # Update status to pending (invite sent)
-    if lease.status == "draft":
-        lease.status = "pending"
-    
-    await db.commit()
-    
-    # Build magic link
-    # In production, use proper domain
-    base_url = "https://ops.proveniq.io"
-    magic_link = f"{base_url}/auth?token={magic_token}"
-    
-    # Alternative: Deep link for mobile app
-    # magic_link = f"proveniq://auth?token={magic_token}"
-    
-    return InviteResponse(
-        magic_link=magic_link,
-        expires_at=expires_at,
-    )
-
-
-@router.post("/refresh-invite", response_model=InviteResponse)
-async def refresh_tenant_invite(
-    request: InviteRequest,
-    db: AsyncSession = Depends(get_db),
-    current_user: User = Depends(require_role("LANDLORD_ADMIN", "LANDLORD_STAFF")),
-):
-    """
-    Refresh an expired magic link for a tenant.
-    
-    Generates a new token and extends expiry.
-    """
-    result = await db.execute(
-        select(Lease).where(Lease.id == request.lease_id)
-    )
-    lease = result.scalar_one_or_none()
-    
-    if not lease:
-        raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND,
-            detail="Lease not found",
-        )
-    
-    # Generate new magic token
-    magic_token = generate_magic_token()
-    expires_at = get_magic_token_expiry(hours=72)
-    
-    lease.magic_token = hash_magic_token(magic_token)
-    lease.magic_token_expires_at = expires_at
-    
-    await db.commit()
-    
-    base_url = "https://ops.proveniq.io"
-    magic_link = f"{base_url}/auth?token={magic_token}"
-    
-    return InviteResponse(
-        magic_link=magic_link,
-        expires_at=expires_at,
-    )
