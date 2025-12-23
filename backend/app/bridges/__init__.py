@@ -15,6 +15,7 @@ These bridges enable the PROVENIQ flywheel:
 from .claimsiq import ClaimsIQBridge, get_claimsiq_bridge
 from .bids import BidsBridge, get_bids_bridge
 from .capital import CapitalBridge, get_capital_bridge
+from .ledger import LedgerBridge, get_ledger_bridge
 from .events import (
     # Loss Events (Ops → ClaimsIQ)
     LossDetectedEvent,
@@ -35,9 +36,11 @@ __all__ = [
     "ClaimsIQBridge",
     "BidsBridge", 
     "CapitalBridge",
+    "LedgerBridge",
     "get_claimsiq_bridge",
     "get_bids_bridge",
     "get_capital_bridge",
+    "get_ledger_bridge",
     # Events
     "LossDetectedEvent",
     "EvidenceCapturedEvent",
