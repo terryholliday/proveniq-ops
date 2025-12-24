@@ -23,6 +23,9 @@ class Settings(BaseSettings):
     
     # OpenAI (for Vision API)
     OPENAI_API_KEY: str | None = None
+
+    # Ledger
+    LEDGER_API_URL: str = "http://localhost:8006/api/v1"
     
     class Config:
         env_file = ".env"
