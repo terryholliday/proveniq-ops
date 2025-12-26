@@ -28,6 +28,7 @@ from app.models.scananomaly import (
     UserProfile,
 )
 from app.services.bishop.scananomaly_engine import scananomaly_engine
+from app.bridges.core_client import get_core_client
 
 router = APIRouter(prefix="/scananomaly", tags=["Scan Anomaly Detector"])
 
@@ -94,6 +95,27 @@ async def record_scan(
         scan_type=scan_type,
         unit_value_micros=Money.from_dollars(unit_value_dollars) if unit_value_dollars else None,
     )
+    
+    # P0: Register high-value equipment with Core to get PAID
+    paid = None
+    if scan_type == "equipment" and unit_value_dollars:
+        try:
+            value = float(unit_value_dollars) if unit_value_dollars else 0
+            if value >= 500:  # High-value threshold
+                core_client = get_core_client()
+                registration = await core_client.register_equipment(
+                    org_id=str(location_id),
+                    equipment_name=product_name,
+                    category="equipment",
+                    location_id=str(location_id),
+                    serial_number=canonical_sku,
+                    purchase_value=value,
+                )
+                if registration:
+                    paid = registration.get("paid")
+                    print(f"[Core] Equipment registered with PAID: {paid}")
+        except Exception as e:
+            print(f"[Core] Equipment registration unavailable: {e}")
     
     alert = scananomaly_engine.record_scan(scan)
     
