@@ -244,6 +244,105 @@ class CoreClient:
             "fallback": True,
         }
 
+    async def detect_vendor_fraud(
+        self,
+        vendor_id: str,
+        deliveries: List[Dict[str, Any]],
+    ) -> Dict[str, Any]:
+        """P2: Detect vendor fraud through delivery discrepancy analysis."""
+        patterns = []
+        suspicious_deliveries = []
+        fraud_score = 20
+        
+        if not deliveries:
+            return {
+                "vendor_id": vendor_id,
+                "fraud_score": fraud_score,
+                "risk_level": "LOW",
+                "patterns": [],
+                "suspicious_deliveries": [],
+                "recommendation": "ALLOW",
+            }
+        
+        # Pattern 1: Quantity discrepancies
+        discrepancy_deliveries = [
+            d for d in deliveries 
+            if d.get("ordered_qty", 0) != d.get("received_qty", 0)
+        ]
+        discrepancy_rate = len(discrepancy_deliveries) / len(deliveries) if deliveries else 0
+        
+        if discrepancy_rate > 0.3:
+            fraud_score += 30
+            patterns.append({
+                "type": "HIGH_DISCREPANCY_RATE",
+                "severity": "high",
+                "description": f"{round(discrepancy_rate * 100)}% of deliveries have quantity discrepancies",
+            })
+            suspicious_deliveries.extend([d.get("delivery_id") for d in discrepancy_deliveries])
+        elif discrepancy_rate > 0.15:
+            fraud_score += 15
+            patterns.append({
+                "type": "ELEVATED_DISCREPANCY_RATE",
+                "severity": "medium",
+                "description": f"{round(discrepancy_rate * 100)}% discrepancy rate above average",
+            })
+        
+        # Pattern 2: Price inflation
+        price_anomalies = [
+            d for d in deliveries
+            if d.get("invoiced_price", 0) > d.get("quoted_price", 0) * 1.1
+        ]
+        if len(price_anomalies) > 3:
+            fraud_score += 25
+            patterns.append({
+                "type": "PRICE_INFLATION",
+                "severity": "high",
+                "description": f"{len(price_anomalies)} deliveries with >10% price inflation",
+            })
+            suspicious_deliveries.extend([d.get("delivery_id") for d in price_anomalies])
+        
+        # Pattern 3: Substitution frequency
+        substitutions = [d for d in deliveries if d.get("had_substitution", False)]
+        sub_rate = len(substitutions) / len(deliveries) if deliveries else 0
+        if sub_rate > 0.25:
+            fraud_score += 20
+            patterns.append({
+                "type": "FREQUENT_SUBSTITUTIONS",
+                "severity": "medium",
+                "description": f"{round(sub_rate * 100)}% of orders had substitutions",
+            })
+        
+        # Pattern 4: Short deliveries
+        short_deliveries = [
+            d for d in deliveries
+            if d.get("received_qty", 0) < d.get("ordered_qty", 0) * 0.9
+        ]
+        if len(short_deliveries) > 5:
+            fraud_score += 20
+            patterns.append({
+                "type": "CHRONIC_SHORT_DELIVERY",
+                "severity": "high",
+                "description": f"{len(short_deliveries)} significantly short deliveries",
+            })
+            suspicious_deliveries.extend([d.get("delivery_id") for d in short_deliveries])
+        
+        fraud_score = min(fraud_score, 100)
+        risk_level = "LOW" if fraud_score < 30 else "MEDIUM" if fraud_score < 60 else "HIGH" if fraud_score < 80 else "CRITICAL"
+        recommendation = "ALLOW" if fraud_score < 30 else "REVIEW" if fraud_score < 60 else "SUSPEND" if fraud_score < 80 else "TERMINATE"
+        
+        print(f"[Core] Vendor fraud detection: {vendor_id} score={fraud_score} patterns={len(patterns)}")
+        
+        return {
+            "vendor_id": vendor_id,
+            "fraud_score": fraud_score,
+            "risk_level": risk_level,
+            "patterns": patterns,
+            "suspicious_deliveries": list(set(d for d in suspicious_deliveries if d)),
+            "recommendation": recommendation,
+            "analyzed_deliveries": len(deliveries),
+            "analyzed_at": datetime.utcnow().isoformat(),
+        }
+
 
 # Singleton instance
 _core_client: Optional[CoreClient] = None

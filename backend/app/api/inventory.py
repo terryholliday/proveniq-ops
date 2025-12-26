@@ -17,6 +17,7 @@ from app.models.schemas import (
     ProductCreate,
     ProductRead,
 )
+from app.bridges.core_client import get_core_client
 
 router = APIRouter(prefix="/inventory", tags=["Inventory"])
 
@@ -214,3 +215,61 @@ async def get_products_below_par(
             })
     
     return sorted(below_par, key=lambda x: x["shortage"], reverse=True)
+
+
+# =============================================================================
+# P0: CORE BATCH VALUATION
+# =============================================================================
+
+@router.post("/valuate")
+async def batch_valuate_inventory(
+    location_id: Optional[uuid.UUID] = None,
+    db: AsyncSession = Depends(get_db),
+) -> dict:
+    """
+    P0: Batch valuate inventory using Core valuation engine.
+    
+    Returns total inventory value for insurance/accounting purposes.
+    """
+    # Get all products with latest snapshots
+    products_result = await db.execute(select(Product))
+    products = products_result.scalars().all()
+    
+    items_to_valuate = []
+    
+    for product in products:
+        # Get latest snapshot
+        snapshot_query = (
+            select(InventorySnapshot)
+            .where(InventorySnapshot.product_id == product.id)
+            .order_by(InventorySnapshot.scanned_at.desc())
+            .limit(1)
+        )
+        snapshot_result = await db.execute(snapshot_query)
+        latest = snapshot_result.scalar_one_or_none()
+        
+        if latest and latest.quantity > 0:
+            items_to_valuate.append({
+                "id": str(product.id),
+                "sku": product.barcode,
+                "name": product.name,
+                "category": product.risk_category or "inventory",
+                "quantity": latest.quantity,
+                "unit_cost": float(product.unit_cost_micros or 0) / 1_000_000,
+            })
+    
+    # Call Core batch valuation
+    core_client = get_core_client()
+    valuation_result = await core_client.batch_valuate_inventory(items_to_valuate)
+    
+    print(f"[Core] Batch valuation complete: ${valuation_result.get('total_value', 0):.2f}")
+    
+    return {
+        "location_id": str(location_id) if location_id else None,
+        "items_valuated": valuation_result.get("successful", 0),
+        "items_failed": valuation_result.get("failed", 0),
+        "total_value": valuation_result.get("total_value", 0),
+        "currency": "USD",
+        "valuated_at": valuation_result.get("valuated_at"),
+        "breakdown": valuation_result.get("results", []),
+    }
