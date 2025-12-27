@@ -1,0 +1,28 @@
+version: "3.9"
+services:
+  postgres:
+    image: postgres:16
+    environment:
+      POSTGRES_PASSWORD: postgres
+      POSTGRES_USER: postgres
+      POSTGRES_DB: proveniq_ops
+    ports:
+      - "5432:5432"
+  ops_api:
+    build:
+      context: ..
+      dockerfile: infra/Dockerfile.ops_api
+    environment:
+      DATABASE_URL: postgresql+psycopg://postgres:postgres@postgres:5432/proveniq_ops
+    ports:
+      - "8080:8080"
+    depends_on:
+      - postgres
+  ops_worker:
+    build:
+      context: ..
+      dockerfile: infra/Dockerfile.ops_worker
+    environment:
+      DATABASE_URL: postgresql+psycopg://postgres:postgres@postgres:5432/proveniq_ops
+    depends_on:
+      - postgres

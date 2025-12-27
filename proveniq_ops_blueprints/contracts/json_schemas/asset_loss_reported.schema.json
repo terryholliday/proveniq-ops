@@ -1,0 +1,114 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "asset_loss_reported",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "event_id",
+    "event_type",
+    "asset_id",
+    "aggregate_version",
+    "emitter_class",
+    "emitter_id",
+    "timestamp",
+    "evidence",
+    "payload",
+    "prev_event_hash",
+    "event_hash",
+    "signature"
+  ],
+  "properties": {
+    "event_id": {
+      "type": "string"
+    },
+    "event_type": {
+      "type": "string"
+    },
+    "asset_id": {
+      "type": "string"
+    },
+    "aggregate_version": {
+      "type": "integer",
+      "minimum": 1
+    },
+    "emitter_class": {
+      "enum": [
+        "HUMAN",
+        "SYSTEM",
+        "LEDGER_EXTERNAL"
+      ]
+    },
+    "emitter_id": {
+      "type": "string",
+      "minLength": 1
+    },
+    "timestamp": {
+      "type": "string",
+      "format": "date-time"
+    },
+    "evidence": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "policy",
+        "evidence_hash",
+        "waiver_reason"
+      ],
+      "properties": {
+        "policy": {
+          "enum": [
+            "REQUIRED",
+            "INHERIT_LAST",
+            "WAIVER",
+            "OPTIONAL"
+          ]
+        },
+        "evidence_hash": {
+          "type": "string"
+        },
+        "waiver_reason": {
+          "type": [
+            "string",
+            "null"
+          ]
+        }
+      }
+    },
+    "payload": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "reported_condition",
+        "description",
+        "detected_by"
+      ],
+      "properties": {
+        "reported_condition": {
+          "enum": [
+            "DAMAGED",
+            "DESTROYED"
+          ]
+        },
+        "description": {
+          "type": "string"
+        },
+        "detected_by": {
+          "enum": [
+            "HUMAN",
+            "SENSOR",
+            "AI_ASSISTED"
+          ]
+        }
+      }
+    },
+    "prev_event_hash": {
+      "type": "string"
+    },
+    "event_hash": {
+      "type": "string"
+    },
+    "signature": {
+      "type": "string"
+    }
+  }
+}
