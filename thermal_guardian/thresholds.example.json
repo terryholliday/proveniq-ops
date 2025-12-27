@@ -1,0 +1,25 @@
+{
+  "version": "tg-1.0",
+  "windowing": {
+    "baseline_days": 14,
+    "recovery_window_minutes": 20,
+    "variance_window_hours": 24
+  },
+  "thresholds": {
+    "recovery_degradation_pct": 25,
+    "duty_cycle_increase_pct": 20,
+    "short_cycle_sigma": 2.0,
+    "variance_sigma": 2.0,
+    "persistence": {
+      "recovery_days": 3,
+      "duty_cycle_hours": 48,
+      "variance_hours": 48
+    }
+  },
+  "confidence": {
+    "temp_only": 0.55,
+    "temp_plus_door": 0.75,
+    "temp_plus_power": 0.8,
+    "temp_door_power": 0.9
+  }
+}

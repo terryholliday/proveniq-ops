@@ -1,0 +1,165 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "RecommendationEmittedPayload_ThermalGuardian",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "recommendation_id",
+    "risk_type",
+    "asset_class",
+    "time_window",
+    "signals",
+    "confidence",
+    "suggested_actions",
+    "evidence_basis"
+  ],
+  "properties": {
+    "recommendation_id": {
+      "type": "string",
+      "description": "uuid-v7"
+    },
+    "risk_type": {
+      "enum": [
+        "COMPRESSOR_DEGRADATION",
+        "THERMAL_DRIFT",
+        "DOOR_ABUSE_PATTERN",
+        "POWER_ANOMALY_RISK"
+      ]
+    },
+    "asset_class": {
+      "enum": [
+        "WALKIN_FREEZER",
+        "WALKIN_COOLER",
+        "REACHIN_FREEZER",
+        "ICE_MACHINE",
+        "HVAC",
+        "OTHER_COLD_CHAIN"
+      ]
+    },
+    "time_window": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "start",
+        "end"
+      ],
+      "properties": {
+        "start": {
+          "type": "string",
+          "format": "date-time"
+        },
+        "end": {
+          "type": "string",
+          "format": "date-time"
+        }
+      }
+    },
+    "signals": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "baseline_ref",
+        "recovery",
+        "variance",
+        "cycles"
+      ],
+      "properties": {
+        "baseline_ref": {
+          "type": "string"
+        },
+        "recovery": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "slope_delta_pct",
+            "time_to_recover_delta_pct"
+          ],
+          "properties": {
+            "slope_delta_pct": {
+              "type": "number"
+            },
+            "time_to_recover_delta_pct": {
+              "type": "number"
+            }
+          }
+        },
+        "variance": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "stddev_delta_sigma",
+            "excursions_count"
+          ],
+          "properties": {
+            "stddev_delta_sigma": {
+              "type": "number"
+            },
+            "excursions_count": {
+              "type": "integer",
+              "minimum": 0
+            }
+          }
+        },
+        "cycles": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "duty_cycle_delta_pct",
+            "cycles_per_hour_delta_sigma",
+            "short_cycling_detected"
+          ],
+          "properties": {
+            "duty_cycle_delta_pct": {
+              "type": "number"
+            },
+            "cycles_per_hour_delta_sigma": {
+              "type": "number"
+            },
+            "short_cycling_detected": {
+              "type": "boolean"
+            }
+          }
+        }
+      }
+    },
+    "confidence": {
+      "type": "number",
+      "minimum": 0.0,
+      "maximum": 1.0
+    },
+    "suggested_actions": {
+      "type": "array",
+      "minItems": 1,
+      "items": {
+        "enum": [
+          "SCHEDULE_MAINTENANCE",
+          "VERIFY_SENSOR_CALIBRATION",
+          "CONFIRM_DOOR_POLICY",
+          "CHECK_GASKETS",
+          "CHECK_COMPRESSOR",
+          "CHECK_POWER_QUALITY"
+        ]
+      }
+    },
+    "evidence_basis": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "telemetry_sources",
+        "derived_features_digest"
+      ],
+      "properties": {
+        "telemetry_sources": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "derived_features_digest": {
+          "type": "string",
+          "description": "sha256 of canonical features payload for auditability"
+        }
+      }
+    }
+  }
+}

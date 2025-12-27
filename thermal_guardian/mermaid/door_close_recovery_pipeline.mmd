@@ -1,0 +1,11 @@
+flowchart TD
+  D[Door closes event] --> W[Define recovery window\nN minutes]
+  W --> T0[Read temp at t0]
+  W --> TS[Estimate setpoint Tset\n(median stable temp)]
+  W --> TR[Read temps in window]
+  TR --> S[Compute recovery slope dT/dt]
+  TR --> TT[Compute time-to-recover\n(to Tset±tol)]
+  S --> C[Compare to baseline\n(slope_delta_pct)]
+  TT --> C2[Compare to baseline\n(time_to_recover_delta_pct)]
+  C --> OUT[Emit feature vector\nfor Bishop]
+  C2 --> OUT

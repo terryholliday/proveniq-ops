@@ -1,0 +1,134 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "ThermalGuardianThresholds",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "version",
+    "windowing",
+    "thresholds",
+    "confidence"
+  ],
+  "properties": {
+    "version": {
+      "type": "string"
+    },
+    "windowing": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "baseline_days",
+        "recovery_window_minutes",
+        "variance_window_hours"
+      ],
+      "properties": {
+        "baseline_days": {
+          "type": "integer",
+          "minimum": 7,
+          "maximum": 30
+        },
+        "recovery_window_minutes": {
+          "type": "integer",
+          "minimum": 5,
+          "maximum": 60
+        },
+        "variance_window_hours": {
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 72
+        }
+      }
+    },
+    "thresholds": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "recovery_degradation_pct",
+        "duty_cycle_increase_pct",
+        "short_cycle_sigma",
+        "variance_sigma",
+        "persistence"
+      ],
+      "properties": {
+        "recovery_degradation_pct": {
+          "type": "number",
+          "minimum": 5,
+          "maximum": 80
+        },
+        "duty_cycle_increase_pct": {
+          "type": "number",
+          "minimum": 5,
+          "maximum": 80
+        },
+        "short_cycle_sigma": {
+          "type": "number",
+          "minimum": 0.5,
+          "maximum": 6.0
+        },
+        "variance_sigma": {
+          "type": "number",
+          "minimum": 0.5,
+          "maximum": 6.0
+        },
+        "persistence": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "recovery_days",
+            "duty_cycle_hours",
+            "variance_hours"
+          ],
+          "properties": {
+            "recovery_days": {
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 14
+            },
+            "duty_cycle_hours": {
+              "type": "integer",
+              "minimum": 6,
+              "maximum": 168
+            },
+            "variance_hours": {
+              "type": "integer",
+              "minimum": 6,
+              "maximum": 168
+            }
+          }
+        }
+      }
+    },
+    "confidence": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "temp_only",
+        "temp_plus_door",
+        "temp_plus_power",
+        "temp_door_power"
+      ],
+      "properties": {
+        "temp_only": {
+          "type": "number",
+          "minimum": 0.1,
+          "maximum": 1.0
+        },
+        "temp_plus_door": {
+          "type": "number",
+          "minimum": 0.1,
+          "maximum": 1.0
+        },
+        "temp_plus_power": {
+          "type": "number",
+          "minimum": 0.1,
+          "maximum": 1.0
+        },
+        "temp_door_power": {
+          "type": "number",
+          "minimum": 0.1,
+          "maximum": 1.0
+        }
+      }
+    }
+  }
+}

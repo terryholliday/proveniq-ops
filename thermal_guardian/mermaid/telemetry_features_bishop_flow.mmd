@@ -1,0 +1,23 @@
+flowchart LR
+  subgraph Telemetry
+    R[(telemetry_raw)]
+    A1[(telemetry_agg_1m)]
+    A15[(telemetry_agg_15m)]
+    R -->|downsample| A1 -->|downsample| A15
+  end
+
+  A1 --> F[Feature Extractor]
+  A15 --> F
+
+  F --> B[Bishop: Thermal Guardian]
+  B --> RE[RECOMMENDATION_EMITTED\n(SYSTEM:bishop)]
+
+  RE --> UX[Manager Review UI]
+  UX -->|Accept + Evidence| RA[RECOMMENDATION_ACCEPTED]
+  UX -->|Reject| RR[RECOMMENDATION_REJECTED]
+
+  RA --> ES[(event_store)]
+  RR --> ES
+  RE --> ES
+
+  ES --> P[asset_projection]
