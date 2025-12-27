@@ -35,7 +35,7 @@ paths:
         content:
           application/json:
             schema:
-              $ref: "#/components/schemas/BaseEventEnvelope"
+              $ref: "#/components/schemas/EventAppendRequest"
       responses:
         "202":
           description: Accepted (projection may be async)
@@ -81,3 +81,5 @@ components:
   schemas:
     BaseEventEnvelope:
       $ref: "./json_schemas/base_event.schema.json"
+    EventAppendRequest:
+      $ref: "./json_schemas/event_append_request.schema.json"

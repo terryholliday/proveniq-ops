@@ -1,0 +1,47 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "EventAppendRequest",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "event_type",
+    "evidence",
+    "payload"
+  ],
+  "properties": {
+    "event_type": {
+      "type": "string"
+    },
+    "evidence": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "policy",
+        "evidence_hash",
+        "waiver_reason"
+      ],
+      "properties": {
+        "policy": {
+          "enum": [
+            "REQUIRED",
+            "INHERIT_LAST",
+            "WAIVER",
+            "OPTIONAL"
+          ]
+        },
+        "evidence_hash": {
+          "type": "string"
+        },
+        "waiver_reason": {
+          "type": [
+            "string",
+            "null"
+          ]
+        }
+      }
+    },
+    "payload": {
+      "type": "object"
+    }
+  }
+}

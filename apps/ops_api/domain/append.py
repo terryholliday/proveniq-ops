@@ -12,4 +12,4 @@ from typing import Dict
 
 def append_event(asset_id: str, entity_id: str, role: str, event: Dict) -> Dict:
     # TODO: implement storage layer (SQLAlchemy) and crypto functions
-    return {"status":"accepted", "asset_id":asset_id}
+    raise NotImplementedError("append_event")

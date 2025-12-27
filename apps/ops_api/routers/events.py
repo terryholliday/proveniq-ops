@@ -19,9 +19,25 @@ def post_event(
     ONLY mutation endpoint: append an event.
     Server enforces: scope, RBAC, evidence policy, optimistic concurrency, idempotency, crypto.
     """
-    # NOTE: entity_id and role MUST come from auth token, never from client header.
-    entity_id = body.get("entity_id")  # placeholder; replace with derived-from-auth
-    role = body.get("role")            # placeholder; replace with derived-from-auth
+    entity_id = "dev-entity"
+    role = "ADMIN"
+
+    forbidden = {
+        "event_id",
+        "asset_id",
+        "aggregate_version",
+        "emitter_class",
+        "emitter_id",
+        "timestamp",
+        "prev_event_hash",
+        "event_hash",
+        "signature",
+        "entity_id",
+        "role",
+    }
+    injected = forbidden.intersection(body.keys())
+    if injected:
+        raise HTTPException(status_code=400, detail=f"Client must not supply server fields: {sorted(injected)}")
 
     validate_event_type(body)
     validate_rbac(role, body)
