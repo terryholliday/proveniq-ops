@@ -9,10 +9,16 @@ from app.services.events.publisher import (
     OpsEventType,
     event_publisher,
 )
+from app.services.events.store import (
+    event_store,
+    PersistentEventStore,
+)
 
 __all__ = [
     "EventPayload",
     "EventPublisher",
     "OpsEventType",
     "event_publisher",
+    "event_store",
+    "PersistentEventStore",
 ]
