@@ -24,7 +24,7 @@ export default async function Home({ searchParams }: { searchParams: Promise<{ a
       <aside className="w-64 border-r border-gray-800 p-4 bg-gray-950 flex flex-col">
         <div className="mb-10">
           <h1 className="text-xl font-bold text-emerald-400 tracking-tight">PROVENIQ OPS</h1>
-          <div className="text-xs text-gray-500 font-mono mt-1">V4.2.0 • BISHOP ONLINE</div>
+          <div className="text-xs text-gray-500 font-mono mt-1">V4.2.0 • BISHOP RETAIL</div>
         </div>
 
         <nav className="space-y-2 flex-1">
@@ -50,8 +50,8 @@ export default async function Home({ searchParams }: { searchParams: Promise<{ a
       <main className="flex-1 p-8 overflow-y-auto">
         <header className="flex justify-between items-center mb-8 border-b border-gray-800 pb-6">
           <div>
-            <h2 className="text-2xl font-bold text-white">Asset Intelligence</h2>
-            <div className="text-sm text-gray-400 font-mono mt-1">ID: {targetId}</div>
+            <h2 className="text-2xl font-bold text-white">Inventory Command Center</h2>
+            <div className="text-sm text-gray-400 font-mono mt-1">CONTEXT: {targetId === 'LOC-FREEZER-01' ? 'Cold Storage Unit 1' : targetId}</div>
           </div>
           <div className="flex gap-4">
             <span className="px-3 py-1 bg-blue-900/30 text-blue-400 border border-blue-800 rounded text-xs tracking-wide">
