@@ -6,7 +6,7 @@ export default async function Home({ searchParams }: { searchParams: Promise<{ a
   const { asset_id } = await searchParams;
 
   // Golden Spike Mock ID if none provided
-  const targetId = asset_id || "ASSET-123";
+  const targetId = asset_id || "LOC-FREEZER-01";
 
   // Fetch Data (Server Side)
   let profile = null;
