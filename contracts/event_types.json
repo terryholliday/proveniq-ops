@@ -10,6 +10,14 @@
       "material": false
     },
     {
+      "event_type": "INVENTORY_SCAN_STARTED",
+      "emitter_class": [
+        "HUMAN"
+      ],
+      "evidence_policy": "OPTIONAL",
+      "material": false
+    },
+    {
       "event_type": "ASSET_VERIFIED",
       "emitter_class": [
         "HUMAN"

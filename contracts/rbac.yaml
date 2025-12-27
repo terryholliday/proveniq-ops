@@ -11,6 +11,10 @@ rules:
   - USER
   - MANAGER
   - ADMIN
+- event_type: INVENTORY_SCAN_STARTED
+  allowed_roles:
+  - MANAGER
+  - ADMIN
 - event_type: ASSET_VERIFIED
   allowed_roles:
   - MANAGER

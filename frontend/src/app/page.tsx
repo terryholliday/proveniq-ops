@@ -1,12 +1,13 @@
 
 import { getAssetProfile } from "@/lib/coreClient";
 import { WidgetRenderer } from "@/components/widgets/WidgetRenderer";
+import { BeginInventoryScanButton } from "@/components/BeginInventoryScanButton";
 
 export default async function Home({ searchParams }: { searchParams: Promise<{ asset_id?: string }> }) {
   const { asset_id } = await searchParams;
 
   // Golden Spike Mock ID if none provided
-  const targetId = asset_id || "LOC-FREEZER-01";
+  const targetId = asset_id || "11111111-1111-1111-1111-111111111111";
 
   // Fetch Data (Server Side)
   let profile = null;
@@ -89,6 +90,11 @@ export default async function Home({ searchParams }: { searchParams: Promise<{ a
                     </span>
                   ))}
                 </div>
+              </div>
+
+              <div className="p-6 bg-gray-800/50 border border-gray-700 rounded">
+                <h4 className="text-xs font-semibold text-gray-500 uppercase mb-4">Inventory</h4>
+                <BeginInventoryScanButton assetId={targetId} />
               </div>
             </div>
           </div>
