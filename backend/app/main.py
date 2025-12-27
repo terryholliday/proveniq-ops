@@ -14,6 +14,7 @@ from app.api import trust_tiers
 from app.api import attestations
 from app.api import framework
 from app.api import downstream
+from app.api import food
 
 app = FastAPI(
     title=settings.APP_NAME,
@@ -45,6 +46,7 @@ app.include_router(trust_tiers.router)  # Trust Tiers API (Phase 1-2)
 app.include_router(attestations.router)  # Attestations API (Phase 2-3)
 app.include_router(framework.router)  # Integrity Framework API (Phase 3-4)
 app.include_router(downstream.router)  # Downstream Integration API (Phase 4-5)
+app.include_router(food.router)  # Food Management API (Migration 008)
 
 
 @app.get("/")

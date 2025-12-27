@@ -28,6 +28,10 @@ async_session_factory = async_sessionmaker(
 )
 
 
+# Alias for backward compatibility
+async_session_maker = async_session_factory
+
+
 async def get_db() -> AsyncGenerator[AsyncSession, None]:
     """Dependency for database session injection."""
     async with async_session_factory() as session:

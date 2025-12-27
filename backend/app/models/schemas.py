@@ -266,3 +266,297 @@ class VendorQueryResponse(BaseModel):
     unit_price_micros: MoneyMicros
     estimated_delivery_hours: Optional[int] = None
     queried_at: datetime = Field(default_factory=datetime.utcnow)
+
+
+# =============================================================================
+# FOOD MANAGEMENT SCHEMAS (Migration 008)
+# =============================================================================
+
+class IngredientCategory(str, Enum):
+    """Ingredient categories for food management."""
+    PROTEIN = "protein"
+    PRODUCE = "produce"
+    DAIRY = "dairy"
+    DRY_GOODS = "dry_goods"
+    BEVERAGES = "beverages"
+    FROZEN = "frozen"
+    BAKERY = "bakery"
+    CONDIMENTS = "condiments"
+    SUPPLIES = "supplies"
+
+
+class IngredientStatus(str, Enum):
+    """Ingredient lifecycle status."""
+    ACTIVE = "active"
+    INACTIVE = "inactive"
+    DISCONTINUED = "discontinued"
+
+
+class IngredientBase(BaseModel):
+    """Base ingredient attributes."""
+    name: str = Field(..., min_length=1, max_length=255)
+    category: IngredientCategory
+    subcategory: Optional[str] = Field(None, max_length=100)
+    base_unit: str = Field(..., max_length=20)  # lb, oz, each, case, gal
+    purchase_unit: str = Field(..., max_length=20)
+    purchase_to_base_ratio: Decimal = Field(Decimal("1.0"), gt=0)
+    current_cost_cents: int = Field(..., gt=0, description="Cost in cents")
+    is_perishable: bool = True
+    shelf_life_days: Optional[int] = Field(None, ge=1)
+    requires_refrigeration: bool = False
+    requires_freezer: bool = False
+    par_level: Optional[Decimal] = Field(None, ge=0)
+    reorder_point: Optional[Decimal] = Field(None, ge=0)
+    min_order_qty: Optional[Decimal] = Field(None, ge=0)
+    preferred_vendor_id: Optional[uuid.UUID] = None
+    status: IngredientStatus = IngredientStatus.ACTIVE
+
+
+class IngredientCreate(IngredientBase):
+    """Ingredient creation payload."""
+    org_id: uuid.UUID
+
+
+class IngredientRead(IngredientBase):
+    """Ingredient response model."""
+    model_config = ConfigDict(from_attributes=True)
+    
+    id: uuid.UUID
+    org_id: uuid.UUID
+    cost_updated_at: Optional[datetime] = None
+    avg_cost_30d: Optional[int] = None
+    avg_cost_90d: Optional[int] = None
+    created_at: datetime
+    updated_at: datetime
+
+
+class MenuItemStatus(str, Enum):
+    """Menu item status."""
+    ACTIVE = "active"
+    INACTIVE = "inactive"
+    SEASONAL = "seasonal"
+    EIGHTYSIXED = "86d"  # Industry term for "out of stock"
+
+
+class MenuItemBase(BaseModel):
+    """Base menu item attributes."""
+    name: str = Field(..., min_length=1, max_length=255)
+    category: str = Field(..., max_length=100)
+    subcategory: Optional[str] = Field(None, max_length=100)
+    menu_price_cents: int = Field(..., gt=0, description="Menu price in cents")
+    target_food_cost_pct: Optional[Decimal] = Field(Decimal("30.00"), ge=0, le=100)
+    status: MenuItemStatus = MenuItemStatus.ACTIVE
+    is_seasonal: bool = False
+
+
+class MenuItemCreate(MenuItemBase):
+    """Menu item creation payload."""
+    org_id: uuid.UUID
+
+
+class MenuItemRead(MenuItemBase):
+    """Menu item response model."""
+    model_config = ConfigDict(from_attributes=True)
+    
+    id: uuid.UUID
+    org_id: uuid.UUID
+    calculated_food_cost_cents: Optional[int] = None
+    food_cost_percentage: Optional[Decimal] = None
+    avg_daily_sales: Optional[Decimal] = None
+    last_sold_at: Optional[datetime] = None
+    created_at: datetime
+    updated_at: datetime
+
+
+class RecipeBase(BaseModel):
+    """Base recipe (menu item ingredient) attributes."""
+    menu_item_id: uuid.UUID
+    ingredient_id: uuid.UUID
+    quantity: Decimal = Field(..., gt=0)
+    unit: str = Field(..., max_length=20)
+    waste_factor: Decimal = Field(Decimal("1.0"), ge=1.0)  # 1.1 = 10% waste
+
+
+class RecipeCreate(RecipeBase):
+    """Recipe creation payload."""
+    pass
+
+
+class RecipeRead(RecipeBase):
+    """Recipe response model."""
+    model_config = ConfigDict(from_attributes=True)
+    
+    id: uuid.UUID
+    calculated_cost_cents: Optional[int] = None
+    created_at: datetime
+    updated_at: datetime
+
+
+class WasteType(str, Enum):
+    """Food waste type classification."""
+    SPOILAGE = "spoilage"
+    EXPIRED = "expired"
+    PREP_WASTE = "prep_waste"
+    COOKING_ERROR = "cooking_error"
+    CUSTOMER_RETURN = "customer_return"
+    OVERPRODUCTION = "overproduction"
+    DAMAGED = "damaged"
+    THEFT = "theft"
+    UNKNOWN = "unknown"
+
+
+class WasteReason(str, Enum):
+    """Food waste reason classification."""
+    PAST_EXPIRATION = "past_expiration"
+    TEMPERATURE_ABUSE = "temperature_abuse"
+    IMPROPER_STORAGE = "improper_storage"
+    OVER_PREP = "over_prep"
+    DROPPED = "dropped"
+    BURNT = "burnt"
+    WRONG_ORDER = "wrong_order"
+    QUALITY_ISSUE = "quality_issue"
+    INVENTORY_SHRINK = "inventory_shrink"
+    SPILLAGE = "spillage"
+    OTHER = "other"
+
+
+class FoodWasteCreate(BaseModel):
+    """Food waste record creation."""
+    org_id: uuid.UUID
+    ingredient_id: Optional[uuid.UUID] = None
+    menu_item_id: Optional[uuid.UUID] = None
+    inventory_id: Optional[uuid.UUID] = None
+    waste_type: WasteType
+    waste_reason: WasteReason
+    quantity: Decimal = Field(..., gt=0)
+    unit: str = Field(..., max_length=20)
+    estimated_cost_cents: int = Field(..., ge=0)
+    photo_url: Optional[str] = Field(None, max_length=500)
+    notes: Optional[str] = None
+    recorded_by: Optional[uuid.UUID] = None
+
+
+class FoodWasteRead(FoodWasteCreate):
+    """Food waste response model."""
+    model_config = ConfigDict(from_attributes=True)
+    
+    id: uuid.UUID
+    waste_date: datetime
+    recorded_at: datetime
+
+
+class FoodOrderType(str, Enum):
+    """Food order type."""
+    REGULAR = "regular"
+    EMERGENCY = "emergency"
+    STANDING = "standing"
+    SPECIAL = "special"
+
+
+class FoodOrderStatus(str, Enum):
+    """Food order status."""
+    DRAFT = "draft"
+    PENDING_APPROVAL = "pending_approval"
+    APPROVED = "approved"
+    SUBMITTED = "submitted"
+    CONFIRMED = "confirmed"
+    SHIPPED = "shipped"
+    DELIVERED = "delivered"
+    CANCELLED = "cancelled"
+    PARTIAL = "partial"
+
+
+class FoodOrderItemCreate(BaseModel):
+    """Food order line item."""
+    ingredient_id: Optional[uuid.UUID] = None
+    vendor_product_id: Optional[uuid.UUID] = None
+    product_name: str = Field(..., max_length=255)
+    vendor_sku: Optional[str] = Field(None, max_length=100)
+    quantity_ordered: Decimal = Field(..., gt=0)
+    unit: str = Field(..., max_length=20)
+    unit_price_cents: int = Field(..., gt=0)
+
+
+class FoodOrderCreate(BaseModel):
+    """Food order creation payload."""
+    org_id: uuid.UUID
+    vendor_id: uuid.UUID
+    order_type: FoodOrderType = FoodOrderType.REGULAR
+    expected_delivery: Optional[datetime] = None
+    bishop_session_id: Optional[uuid.UUID] = None
+    auto_generated: bool = False
+    items: list[FoodOrderItemCreate] = Field(..., min_length=1)
+
+
+class FoodOrderItemRead(BaseModel):
+    """Food order item response."""
+    model_config = ConfigDict(from_attributes=True)
+    
+    id: uuid.UUID
+    ingredient_id: Optional[uuid.UUID]
+    vendor_product_id: Optional[uuid.UUID]
+    product_name: str
+    vendor_sku: Optional[str]
+    quantity_ordered: Decimal
+    quantity_received: Optional[Decimal]
+    unit: str
+    unit_price_cents: int
+    line_total_cents: int
+    received_date: Optional[datetime]
+    received_by: Optional[uuid.UUID]
+    receiving_notes: Optional[str]
+
+
+class FoodOrderRead(BaseModel):
+    """Food order response model."""
+    model_config = ConfigDict(from_attributes=True)
+    
+    id: uuid.UUID
+    org_id: uuid.UUID
+    vendor_id: uuid.UUID
+    order_number: str
+    order_type: FoodOrderType
+    status: FoodOrderStatus
+    subtotal_cents: int
+    tax_cents: int
+    delivery_fee_cents: int
+    total_cents: int
+    order_date: Optional[datetime]
+    expected_delivery: Optional[datetime]
+    actual_delivery: Optional[datetime]
+    bishop_session_id: Optional[uuid.UUID]
+    auto_generated: bool
+    approved_by: Optional[uuid.UUID]
+    approved_at: Optional[datetime]
+    created_at: datetime
+    updated_at: datetime
+    items: list[FoodOrderItemRead] = []
+
+
+class FoodCostReportType(str, Enum):
+    """Food cost report period type."""
+    DAILY = "daily"
+    WEEKLY = "weekly"
+    MONTHLY = "monthly"
+
+
+class FoodCostReportRead(BaseModel):
+    """Food cost report response."""
+    model_config = ConfigDict(from_attributes=True)
+    
+    id: uuid.UUID
+    org_id: uuid.UUID
+    report_date: datetime
+    report_type: FoodCostReportType
+    total_food_sales_cents: Optional[int]
+    beginning_inventory_value_cents: Optional[int]
+    purchases_cents: Optional[int]
+    ending_inventory_value_cents: Optional[int]
+    calculated_cogs_cents: Optional[int]
+    total_waste_value_cents: Optional[int]
+    waste_by_type: Optional[dict]
+    food_cost_percentage: Optional[Decimal]
+    target_food_cost_pct: Optional[Decimal]
+    variance_from_target: Optional[Decimal]
+    alerts: Optional[list[dict]]
+    generated_at: datetime
