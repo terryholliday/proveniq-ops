@@ -15,6 +15,7 @@ from app.api import attestations
 from app.api import framework
 from app.api import downstream
 from app.api import food
+from app.api import telemetry
 
 app = FastAPI(
     title=settings.APP_NAME,
@@ -47,6 +48,7 @@ app.include_router(attestations.router)  # Attestations API (Phase 2-3)
 app.include_router(framework.router)  # Integrity Framework API (Phase 3-4)
 app.include_router(downstream.router)  # Downstream Integration API (Phase 4-5)
 app.include_router(food.router)  # Food Management API (Migration 008)
+app.include_router(telemetry.router)  # Telemetry & Events API (P1: Data Gravity)
 
 
 @app.get("/")
