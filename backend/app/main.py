@@ -11,6 +11,7 @@ from app.routers import auth, admin
 from app.modules.bishop import bishop_router
 from app.api import inventory, vendors, decisions, predictions
 from app.api import trust_tiers
+from app.api import attestations
 
 app = FastAPI(
     title=settings.APP_NAME,
@@ -39,6 +40,7 @@ app.include_router(vendors.router)  # Vendors API
 app.include_router(decisions.router)  # Decision DAG API
 app.include_router(predictions.router)  # ML Predictions API
 app.include_router(trust_tiers.router)  # Trust Tiers API (Phase 1-2)
+app.include_router(attestations.router)  # Attestations API (Phase 2-3)
 
 
 @app.get("/")
