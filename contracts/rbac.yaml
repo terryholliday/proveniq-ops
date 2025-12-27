@@ -1,0 +1,65 @@
+version: 1.3.1
+roles:
+- USER
+- MANAGER
+- ADMIN
+- SYSTEM
+- LEDGER_EXTERNAL
+rules:
+- event_type: ASSET_DRAFTED
+  allowed_roles:
+  - USER
+  - MANAGER
+  - ADMIN
+- event_type: ASSET_VERIFIED
+  allowed_roles:
+  - MANAGER
+  - ADMIN
+- event_type: ASSET_ACTIVATED
+  allowed_roles:
+  - SYSTEM
+- event_type: ASSET_DEGRADED
+  allowed_roles:
+  - MANAGER
+  - ADMIN
+- event_type: ASSET_LOSS_REPORTED
+  allowed_roles:
+  - MANAGER
+  - ADMIN
+- event_type: ASSET_RETIRED
+  allowed_roles:
+  - MANAGER
+  - ADMIN
+- event_type: ASSET_CORRUPTED
+  allowed_roles:
+  - SYSTEM
+- event_type: RECOMMENDATION_EMITTED
+  allowed_roles:
+  - SYSTEM
+- event_type: RECOMMENDATION_ACCEPTED
+  allowed_roles:
+  - MANAGER
+  - ADMIN
+  - SYSTEM
+- event_type: RECOMMENDATION_REJECTED
+  allowed_roles:
+  - MANAGER
+  - ADMIN
+- event_type: LOSS_AUTHORIZED
+  allowed_roles:
+  - LEDGER_EXTERNAL
+- event_type: LOSS_DENIED
+  allowed_roles:
+  - LEDGER_EXTERNAL
+- event_type: LEDGER_SYNC_FAILED
+  allowed_roles:
+  - SYSTEM
+- event_type: SECURITY_WAIVER_GRANTED
+  allowed_roles:
+  - ADMIN
+- event_type: FORENSIC_RECOVERY_STARTED
+  allowed_roles:
+  - ADMIN
+- event_type: FORENSIC_RECOVERY_COMPLETED
+  allowed_roles:
+  - ADMIN

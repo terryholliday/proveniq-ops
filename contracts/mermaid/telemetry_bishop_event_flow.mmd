@@ -1,0 +1,19 @@
+flowchart LR
+  subgraph Telemetry
+    TR[telemetry_raw] --> TA1[telemetry_agg_1m]
+    TA1 --> TA15[telemetry_agg_15m]
+  end
+
+  TA1 --> B[Bishop (SYSTEM Actor)]
+  TA15 --> B
+
+  B -->|emit| RE[RECOMMENDATION_EMITTED]
+  RE -->|review| H[Human / Authorized System]
+  H -->|accept| RA[RECOMMENDATION_ACCEPTED]
+  H -->|reject| RR[RECOMMENDATION_REJECTED]
+
+  RA --> ES[(event_store)]
+  RR --> ES
+  RE --> ES
+
+  ES --> AP[asset_projection]

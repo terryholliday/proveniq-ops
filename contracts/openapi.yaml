@@ -1,0 +1,83 @@
+openapi: 3.1.0
+info:
+  title: PROVENIQ Ops API
+  version: "1.3.1"
+servers:
+  - url: https://api.proveniq.io
+paths:
+  /v1/ops/assets:
+    post:
+      summary: Draft new asset
+      description: Creates a draft asset. Evidence may be OPTIONAL depending on policy.
+      security:
+        - bearerAuth: []
+      responses:
+        "201":
+          description: Created
+  /v1/ops/assets/{asset_id}/events:
+    post:
+      summary: Append event (ONLY mutation path)
+      parameters:
+        - name: asset_id
+          in: path
+          required: true
+          schema: { type: string }
+        - name: If-Match
+          in: header
+          required: true
+          schema: { type: string }
+        - name: Idempotency-Key
+          in: header
+          required: true
+          schema: { type: string }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/BaseEventEnvelope"
+      responses:
+        "202":
+          description: Accepted (projection may be async)
+        "409":
+          description: Version conflict
+        "400":
+          description: Policy validation failed
+  /v1/ops/assets/{asset_id}/lineage:
+    get:
+      summary: Full audit trail (paginated)
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: asset_id
+          in: path
+          required: true
+          schema: { type: string }
+        - name: cursor
+          in: query
+          required: false
+          schema: { type: string }
+        - name: limit
+          in: query
+          required: false
+          schema: { type: integer, minimum: 1, maximum: 200 }
+      responses:
+        "200":
+          description: OK
+  /v1/ops/intelligence/acknowledge:
+    post:
+      summary: Accept Bishop recommendation (creates RECOMMENDATION_ACCEPTED)
+      security:
+        - bearerAuth: []
+      responses:
+        "202":
+          description: Accepted
+components:
+  securitySchemes:
+    bearerAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT
+  schemas:
+    BaseEventEnvelope:
+      $ref: "./json_schemas/base_event.schema.json"
