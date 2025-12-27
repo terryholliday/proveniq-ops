@@ -21,7 +21,7 @@ import {
   BishopStatus, 
   ScanOverlay 
 } from '../components';
-import { inventoryApi } from '../services';
+import { inventoryApi, telemetryApi } from '../services';
 
 interface ScannerScreenProps {
   onOpenSettings?: () => void;
@@ -111,6 +111,19 @@ export function ScannerScreen({ onOpenSettings }: ScannerScreenProps) {
         console.error(`Failed to save snapshot for ${product.name}:`, error);
       }
     }
+    
+    // P3: Record telemetry event for Data Gravity
+    const validProducts = products.filter(p => !p.id.startsWith('unknown-'));
+    await telemetryApi.recordInventoryScan(
+      context.location ?? 'unknown',
+      validProducts.length,
+      validProducts.map(p => ({
+        id: p.id,
+        name: p.name,
+        quantity: p.quantity,
+        confidence: p.confidence,
+      })),
+    );
     
     completeScan();
     Alert.alert(

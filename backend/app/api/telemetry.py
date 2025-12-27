@@ -774,6 +774,63 @@ async def submit_shrinkage_claim(
     }
 
 
+# =============================================================================
+# P2: LEDGER WRITE-THROUGH INTEGRATION
+# =============================================================================
+
+@router.post("/ledger/sync", status_code=status.HTTP_200_OK)
+async def sync_events_to_ledger(
+    batch_size: int = Query(100, le=500),
+    db: AsyncSession = Depends(get_db),
+) -> dict:
+    """
+    Sync pending ops_events to PROVENIQ Ledger.
+    
+    P2: CRYPTOGRAPHIC PROOF CHAIN
+    - Events synced to Ledger get hash chain proof
+    - Cross-app visibility
+    - Forensic reconstruction across ecosystem
+    """
+    from app.services.ledger_sync import get_ledger_sync
+    
+    sync_service = get_ledger_sync()
+    result = await sync_service.sync_pending_events(db, batch_size)
+    
+    return {
+        "action": "ledger_sync",
+        "batch_size": batch_size,
+        **result,
+        "message": f"Synced {result['synced']} events to Ledger",
+    }
+
+
+@router.get("/ledger/stats")
+async def get_ledger_sync_stats(
+    db: AsyncSession = Depends(get_db),
+) -> dict:
+    """Get Ledger sync statistics."""
+    from app.services.ledger_sync import get_ledger_sync
+    
+    sync_service = get_ledger_sync()
+    return await sync_service.get_sync_stats(db)
+
+
+@router.get("/ledger/verify/{event_id}")
+async def verify_ledger_integrity(
+    event_id: uuid.UUID,
+    db: AsyncSession = Depends(get_db),
+) -> dict:
+    """
+    Verify an ops_event against its Ledger entry.
+    
+    Cross-references local hash with Ledger chain hash.
+    """
+    from app.services.ledger_sync import get_ledger_sync
+    
+    sync_service = get_ledger_sync()
+    return await sync_service.verify_integrity(event_id, db)
+
+
 @router.get("/stats")
 async def get_telemetry_stats(
     wallet_id: Optional[str] = None,
